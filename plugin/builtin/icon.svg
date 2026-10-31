@@ -1,0 +1,8 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 48 48">
+  <!-- 内置实名认证：青底 + 白色证件（人像卡） -->
+  <rect x="2" y="2" width="44" height="44" rx="10" fill="#0FC6C2"/>
+  <rect x="9" y="13" width="30" height="22" rx="3" fill="none" stroke="#FFFFFF" stroke-width="2.6"/>
+  <circle cx="18" cy="22" r="3.2" fill="#FFFFFF"/>
+  <path fill="#FFFFFF" d="M12.5 30.5c.6-2.8 2.9-4.5 5.5-4.5s4.9 1.7 5.5 4.5H12.5z"/>
+  <path fill="none" stroke="#FFFFFF" stroke-width="2.6" stroke-linecap="round" d="M28 20h7M28 26h7M28 30h5"/>
+</svg>

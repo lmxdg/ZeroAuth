@@ -1,0 +1,14 @@
+# 禁止任何 HTTP 直接访问 runtime 目录内容（配置、日志、锁文件均为服务端专用）
+# Apache 2.4+
+<IfModule mod_authz_core.c>
+    Require all denied
+</IfModule>
+# Apache 2.2 兼容
+<IfModule !mod_authz_core.c>
+    Order deny,allow
+    Deny from all
+</IfModule>
+# 即使访问控制被绕过，也禁止当作 PHP 执行
+<FilesMatch "\.(php|phtml|php\d)$">
+    Require all denied
+</FilesMatch>

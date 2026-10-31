@@ -1,0 +1,4 @@
+# 禁止执行任何脚本，仅允许静态资源访问
+<FilesMatch "\.(php|php3|php4|php5|php7|phtml|phar|asp|aspx|jsp|cgi|fcgi|pl|py|sh)$">
+  Require all denied
+</FilesMatch>
