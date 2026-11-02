@@ -1,0 +1,142 @@
+/* 全站共享 UI：彩色图标、灵动岛通知 */
+html { color-scheme: light; }
+html.theme-dark { color-scheme: dark; }
+
+.ui-ico {
+    display: inline-block;
+    flex: none;
+    width: 16px;
+    height: 16px;
+    object-fit: contain;
+    vertical-align: -3px;
+    line-height: 0;
+}
+/* 兼容旧版 mask 结构（如仍有页面使用） */
+.ui-ico-inner {
+    display: block;
+    width: 100%;
+    height: 100%;
+    background: var(--ico-color, #64748B);
+    -webkit-mask: var(--ico) center / contain no-repeat;
+    mask: var(--ico) center / contain no-repeat;
+    transition: filter .18s, opacity .18s;
+}
+.ui-ico.active .ui-ico-inner,
+.ui-ico.is-active .ui-ico-inner { filter: saturate(1.15); }
+
+/* 灵动岛通知 */
+.ui-island-wrap {
+    position: fixed;
+    top: max(14px, env(safe-area-inset-top));
+    right: max(14px, env(safe-area-inset-right));
+    z-index: 99999;
+    display: flex;
+    flex-direction: column;
+    align-items: flex-end;
+    gap: 10px;
+    width: min(92vw, 420px);
+    pointer-events: none;
+}
+.ui-island {
+    pointer-events: auto;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    min-width: 180px;
+    max-width: 100%;
+    padding: 10px 14px 10px 12px;
+    color: #F8FAFC;
+    background: rgba(17, 19, 23, .94);
+    border: 1px solid rgba(255, 255, 255, .12);
+    border-radius: 999px;
+    box-shadow: 0 10px 30px rgba(0, 0, 0, .28);
+    backdrop-filter: blur(18px);
+    -webkit-backdrop-filter: blur(18px);
+    font-size: 13px;
+    line-height: 20px;
+    position: relative;
+    overflow: hidden;
+    opacity: 0;
+    transform: translateY(-14px) scale(.96);
+    animation: uiIslandIn .42s cubic-bezier(.19, 1, .22, 1) forwards;
+}
+.ui-island.out {
+    animation: uiIslandOut .32s cubic-bezier(.4, 0, 1, 1) forwards;
+}
+.ui-island-dot {
+    flex: none;
+    width: 20px;
+    height: 20px;
+    border-radius: 50%;
+    background: #22C55E;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: #052E16;
+    font-size: 13px;
+    font-weight: 800;
+    box-shadow: 0 0 0 4px rgba(34, 197, 94, .18);
+}
+.ui-island.is-error .ui-island-dot { background: #F53F3F; color: #FFF; box-shadow: 0 0 0 4px rgba(245, 63, 63, .16); }
+.ui-island.is-info .ui-island-dot { background: #3B82F6; color: #FFF; box-shadow: 0 0 0 4px rgba(59, 130, 246, .16); }
+.ui-island-text { flex: 1; min-width: 0; word-break: break-word; }
+.ui-island-close {
+    flex: none;
+    width: 22px;
+    height: 22px;
+    padding: 0;
+    border: 0;
+    border-radius: 50%;
+    background: rgba(255, 255, 255, .1);
+    color: #CBD5E1;
+    cursor: pointer;
+    line-height: 22px;
+    font-size: 14px;
+}
+.ui-island-close:hover { background: rgba(255, 255, 255, .18); color: #FFF; }
+.ui-island-progress {
+    position: absolute;
+    left: 0;
+    bottom: 0;
+    height: 2px;
+    width: 100%;
+    background: linear-gradient(90deg, #22C55E, #4ADE80);
+    transform-origin: left;
+    animation: uiIslandBar 3.6s linear forwards;
+}
+.ui-island.is-error .ui-island-progress { background: linear-gradient(90deg, #F53F3F, #FB7185); }
+.ui-island.is-info .ui-island-progress { background: linear-gradient(90deg, #3B82F6, #60A5FA); }
+
+@keyframes uiIslandIn {
+    to { opacity: 1; transform: translateY(0) scale(1); }
+}
+@keyframes uiIslandOut {
+    to { opacity: 0; transform: translateY(-10px) scale(.96); }
+}
+@keyframes uiIslandBar {
+    to { transform: scaleX(0); }
+}
+
+@media (max-width: 560px) {
+    .ui-island-wrap { top: max(10px, env(safe-area-inset-top)); right: 10px; left: 10px; width: auto; align-items: stretch; }
+    .ui-island { width: 100%; border-radius: 18px; }
+}
+.quick-ico{width:22px;height:22px}
+
+/* IP 归属地标签（国内省市 / 境外地区） */
+.ip-geo-tag {
+    display: inline-block;
+    padding: 1px 8px;
+    border-radius: 999px;
+    font-size: 12px;
+    line-height: 20px;
+    white-space: nowrap;
+    color: #1D4ED8;
+    background: rgba(37, 99, 235, .10);
+    border: 1px solid rgba(37, 99, 235, .22);
+}
+html.theme-dark .ip-geo-tag {
+    color: #93C5FD;
+    background: rgba(59, 130, 246, .16);
+    border-color: rgba(96, 165, 250, .32);
+}

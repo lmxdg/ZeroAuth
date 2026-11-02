@@ -1,0 +1,24 @@
+# 系统配置与安装锁（安装时自动生成，含敏感信息，切勿提交）
+config.php
+install.lock
+
+# 运行时数据（缓存 / 备份 / 防重放 / 限流 / IP 归属地缓存等）
+runtime/app_files/*
+runtime/backups/*
+runtime/nonce/*
+runtime/ratelimit/*
+runtime/*.json
+
+# 上传内容
+uploads/site/*
+uploads/ticket/*
+!uploads/site/favicon.ico
+
+# 系统日志
+*.log
+
+# 系统 / 编辑器文件
+.DS_Store
+Thumbs.db
+.idea/
+.vscode/

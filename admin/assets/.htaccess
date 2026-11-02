@@ -1,0 +1,4 @@
+# 静态资源禁用强缓存：每次协商缓存（文件未变返回 304），保证开发时 JS/CSS 改动即时生效
+<IfModule mod_headers.c>
+    Header set Cache-Control "no-cache, must-revalidate"
+</IfModule>
