@@ -22,7 +22,7 @@ if (is_post()) {
         } elseif ($nAction === 'update_check') {
             $up = update_check_fetch(true);
             if (!empty($up['ok'])) {
-                flash_set(version_compare((string)$up['version'], (string)PRODUCT_VERSION, '>') ? 'warn' : 'ok', version_compare((string)$up['version'], (string)PRODUCT_VERSION, '>') ? ('发现新版本 V' . $up['version'] . '（当前 V' . PRODUCT_VERSION . '），请前往 Releases 下载更新。') : ('当前已是最新版本 V' . PRODUCT_VERSION . '。'));
+                flash_set(version_compare((string)$up['version'], (string)PRODUCT_VERSION, '>') ? 'warn' : 'ok', version_compare((string)$up['version'], (string)PRODUCT_VERSION, '>') ? ('发现新版本 V' . $up['version'] . '（当前 V' . PRODUCT_VERSION . '），可点击「立即更新」一键在线升级。') : ('当前已是最新版本 V' . PRODUCT_VERSION . '。'));
             } else {
                 flash_set('error', '更新检测失败：无法连接 GitHub Releases，请稍后重试。');
             }
@@ -321,8 +321,11 @@ $updateNew = $updateOk && version_compare((string)($updateInfo['version'] ?? '')
             </p>
         </div>
         <div class="spacer"></div>
+        <?php if ($updateNew): ?>
+        <a class="btn-mini" href="update.php" style="text-decoration:none;line-height:30px;margin-right:8px">立即更新</a>
+        <?php endif; ?>
         <?php if ($updateNew && ($updateInfo['url'] ?? '') !== ''): ?>
-        <a class="btn-mini" href="<?php echo e((string)$updateInfo['url']); ?>" target="_blank" rel="noopener noreferrer" style="text-decoration:none;line-height:30px">前往下载</a>
+        <a class="btn-mini-plain" href="<?php echo e((string)$updateInfo['url']); ?>" target="_blank" rel="noopener noreferrer" style="text-decoration:none;line-height:30px;margin-right:8px">前往下载</a>
         <?php endif; ?>
         <form method="post">
             <?php echo csrf_field(); ?>

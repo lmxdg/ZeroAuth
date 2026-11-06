@@ -17,11 +17,13 @@ if (cfg('register_mode', '1') !== '1') {
     redirect('index.php');
 }
 
-$mailOn  = mail_code_available();
-$capOn   = captcha_scene_on('register');
-$capMode = captcha_mode();
-// 极验仅在邮箱验证码发送环节介入；若未开启邮箱验证码，注册提交回退为图形验证码
-$regMode = (!$mailOn && $capMode === 'geetest') ? 'image' : $capMode;
+$mailOn   = mail_code_available();
+$phoneOn  = sms_code_available();   // 手机号注册：后台开启且短信服务商配置完整
+$capOn    = captcha_scene_on('register');
+$capMode  = captcha_mode();
+// 极验仅在验证码发送环节介入；若邮箱/短信验证码均不可用，注册提交回退为图形验证码
+$regMode  = (!$mailOn && !$phoneOn && $capMode === 'geetest') ? 'image' : $capMode;
+$defType  = (!$mailOn && $phoneOn) ? 'phone' : 'email';
 
 function reg_mask_email(string $email): string
 {
@@ -41,6 +43,35 @@ if (is_post() && (string)($_POST['action'] ?? '') === 'sendcode') {
     if (!isset($_POST['csrf']) || !hash_equals(csrf_token(), (string)$_POST['csrf'])) {
         $reply(false, '页面已过期，请刷新后重试。');
     }
+    $type = ((string)($_POST['type'] ?? 'email') === 'phone') ? 'phone' : 'email';
+
+    if ($type === 'phone') {
+        $phone = trim((string)($_POST['phone'] ?? ''));
+        if (!$phoneOn) {
+            $reply(false, '手机号注册未开启，请联系管理员。');
+        }
+        if (!sms_is_phone($phone)) {
+            $reply(false, '请先正确填写手机号。');
+        }
+        if ($capOn) {
+            [$vok, $vmsg] = captcha_verify_scene('register', $_POST, $regMode);
+            if (!$vok) {
+                $reply(false, $vmsg);
+            }
+        }
+        $stmt = db()->prepare('SELECT `id` FROM `user` WHERE `phone`=?');
+        $stmt->execute([$phone]);
+        if ($stmt->fetch()) {
+            $reply(false, '该手机号已被注册，请更换手机号。');
+        }
+        $res = sms_code_send('register_code', $phone);
+        if (!$res['ok']) {
+            $reply(false, $res['msg']);
+        }
+        $_SESSION['register_code_wait'] = 60;
+        $reply(true, '验证码已发送，请查收短信（10 分钟内有效）。', ['masked' => sms_mask_phone($phone)]);
+    }
+
     $email = trim((string)($_POST['email'] ?? ''));
     if (!filter_var($email, FILTER_VALIDATE_EMAIL)) {
         $reply(false, '请先正确填写邮箱地址。');
@@ -78,7 +109,9 @@ if (is_post()) {
     $password  = (string)($_POST['password'] ?? '');
     $password2 = (string)($_POST['password2'] ?? '');
     $email     = trim((string)($_POST['email'] ?? ''));
+    $phone     = trim((string)($_POST['phone'] ?? ''));
     $invite    = strtoupper(trim((string)($_POST['invite_code'] ?? '')));
+    $regType   = ((string)($_POST['reg_type'] ?? '') === 'phone' && $phoneOn) ? 'phone' : 'email';
 
     if (!preg_match('/^[A-Za-z0-9_]{3,32}$/', $username)) {
         $error = '账号需为 3~32 位字母、数字或下划线。';
@@ -86,6 +119,14 @@ if (is_post()) {
         $error = '密码长度需在 6 ~ 64 位之间。';
     } elseif ($password !== $password2) {
         $error = '两次输入的密码不一致。';
+    } elseif ($regType === 'phone') {
+        if (!sms_is_phone($phone)) {
+            $error = '请输入正确的手机号。';
+        } elseif (!sms_code_verify('register_code', $phone, trim((string)($_POST['sms_code'] ?? '')))) {
+            $error = '短信验证码不正确或已过期，请重新获取。';
+        } elseif ($email !== '' && !filter_var($email, FILTER_VALIDATE_EMAIL)) {
+            $error = '邮箱格式不正确，可留空不填写。';
+        }
     } elseif ($email === '' || !filter_var($email, FILTER_VALIDATE_EMAIL)) {
         $error = '请输入正确的邮箱地址。';
     } elseif ($mailOn && !mail_code_verify('register_code', $email, trim((string)($_POST['email_code'] ?? '')))) {
@@ -114,27 +155,47 @@ if (is_post()) {
         $stmt->execute([$username]);
         if ($stmt->fetch()) {
             $error = '该账号已被注册。';
-        } else {
-            $stmt = db()->prepare('SELECT `id` FROM `user` WHERE `email`=?');
-            $stmt->execute([$email]);
-            if ($stmt->fetch()) {
-                $error = '该邮箱已被注册。';
-            } else {
-                $stmt = db()->prepare('INSERT INTO `user` (`username`,`password`,`email`,`status`,`agent_id`,`reg_ip`,`created_at`) VALUES (?,?,?,1,?,?,?)');
-                $stmt->execute([$username, password_hash($password, PASSWORD_DEFAULT), $email, $agentId, client_ip(), time()]);
-                $uid = (int)db()->lastInsertId();
-                audit('user', 'register', 3, $uid, '注册账号：' . $username . ($agentId > 0 ? '（邀请码绑定代理商#' . $agentId . '）' : ''));
-                mail_scene_send('register_ok', $email, [
-                    'userName' => $username,
-                    'email'    => $email,
-                    'time'     => date('Y-m-d H:i'),
-                ]);
-                session_regenerate_id(true);
-                $_SESSION['user_id'] = $uid;
-                flash_set('ok', '注册成功，欢迎使用！');
-                redirect('dashboard.php');
-            }
         }
+    }
+    if ($error === '' && $email !== '') {
+        $stmt = db()->prepare('SELECT `id` FROM `user` WHERE `email`=?');
+        $stmt->execute([$email]);
+        if ($stmt->fetch()) {
+            $error = '该邮箱已被注册。';
+        }
+    }
+    if ($error === '' && $regType === 'phone') {
+        $stmt = db()->prepare('SELECT `id` FROM `user` WHERE `phone`=?');
+        $stmt->execute([$phone]);
+        if ($stmt->fetch()) {
+            $error = '该手机号已被注册。';
+        }
+    }
+
+    if ($error === '') {
+        $stmt = db()->prepare('INSERT INTO `user` (`username`,`password`,`email`,`phone`,`status`,`agent_id`,`reg_ip`,`created_at`) VALUES (?,?,?,?,1,?,?,?)');
+        $stmt->execute([
+            $username,
+            password_hash($password, PASSWORD_DEFAULT),
+            $email,
+            $regType === 'phone' ? $phone : '',
+            $agentId,
+            client_ip(),
+            time(),
+        ]);
+        $uid = (int)db()->lastInsertId();
+        audit('user', 'register', 3, $uid, '注册账号：' . $username . ($regType === 'phone' ? '（手机号 ' . sms_mask_phone($phone) . '）' : '') . ($agentId > 0 ? '（邀请码绑定代理商#' . $agentId . '）' : ''));
+        if ($email !== '') {
+            mail_scene_send('register_ok', $email, [
+                'userName' => $username,
+                'email'    => $email,
+                'time'     => date('Y-m-d H:i'),
+            ]);
+        }
+        session_regenerate_id(true);
+        $_SESSION['user_id'] = $uid;
+        flash_set('ok', '注册成功，欢迎使用！');
+        redirect('dashboard.php');
     }
 }
 ?>
@@ -175,6 +236,9 @@ a{text-decoration:none;color:inherit}img{vertical-align:middle}
 .btn-plain:disabled{opacity:.6;cursor:not-allowed}
 .login-links{display:flex;justify-content:space-between;gap:10px;margin-top:16px;font-size:13px;color:var(--t3);flex-wrap:wrap}
 .login-links a{color:var(--p)}
+.reg-type-tabs{display:flex;background:var(--bg);border-radius:var(--r);padding:3px;gap:3px}
+.reg-type-tab{flex:1;height:32px;border:none;background:transparent;border-radius:var(--r);font-size:13px;color:var(--t2);cursor:pointer;transition:all .15s}
+.reg-type-tab.active{background:var(--card);color:var(--p);font-weight:600;box-shadow:0 1px 4px rgba(31,35,41,.08)}
 
 .veil{position:fixed;inset:0;background:rgba(29,33,41,.45);z-index:99990;display:none;align-items:center;justify-content:center;padding:16px}
 .veil.on{display:flex}
@@ -227,6 +291,15 @@ a{text-decoration:none;color:inherit}img{vertical-align:middle}
 
     <form method="post" class="login-form" autocomplete="off">
         <?php echo csrf_field(); ?>
+        <input type="hidden" name="reg_type" id="regTypeInput" value="<?php echo e($defType); ?>">
+        <?php if ($mailOn && $phoneOn): ?>
+        <div class="form-item">
+            <div class="reg-type-tabs" id="regTypeTabs">
+                <button type="button" class="reg-type-tab" data-type="email">邮箱注册</button>
+                <button type="button" class="reg-type-tab" data-type="phone">手机号注册</button>
+            </div>
+        </div>
+        <?php endif; ?>
         <div class="form-item">
             <label class="form-label">账号</label>
             <input class="form-input" type="text" name="username" value="<?php echo e(trim((string)($_POST['username'] ?? ''))); ?>" minlength="3" maxlength="32" placeholder="3~32 位字母、数字或下划线" required>
@@ -239,35 +312,47 @@ a{text-decoration:none;color:inherit}img{vertical-align:middle}
             <label class="form-label">确认密码</label>
             <input class="form-input" type="password" name="password2" placeholder="再次输入密码" required>
         </div>
-        <div class="form-item">
-            <label class="form-label">邮箱</label>
-            <input class="form-input" type="email" name="email" id="reg-email" value="<?php echo e(trim((string)($_POST['email'] ?? ''))); ?>" maxlength="128" placeholder="用于接收通知与找回密码" required>
-        </div>
-        <div class="form-item">
-            <label class="form-label">代理商邀请码（选填）</label>
-            <input class="form-input" type="text" name="invite_code" value="<?php echo e(strtoupper(trim((string)($_POST['invite_code'] ?? '')))); ?>" maxlength="10" placeholder="填写后自动绑定邀请您的代理商" style="text-transform:uppercase">
-        </div>
-        <?php if ($mailOn): ?>
         <?php if ($capOn && $regMode === 'turnstile'): ?>
         <div class="form-item">
             <label class="form-label">安全验证</label>
             <?php echo turnstile_widget_html(); ?>
         </div>
         <?php endif; ?>
-        <div class="form-item">
-            <label class="form-label">验证码</label>
-            <div class="captcha-row">
-                <input class="form-input" type="text" name="email_code" maxlength="6" placeholder="6 位数字验证码" required>
-                <button class="btn-plain" type="button" id="btn-sendcode">获取验证码</button>
+        <?php if ($mailOn || $phoneOn): ?>
+        <div id="regEmailBox" style="<?php echo $defType === 'phone' ? 'display:none' : ''; ?>">
+            <div class="form-item">
+                <label class="form-label"><?php echo $mailOn ? '邮箱' : '邮箱（选填）'; ?></label>
+                <input class="form-input" type="email" name="email" id="reg-email" value="<?php echo e(trim((string)($_POST['email'] ?? ''))); ?>" maxlength="128" placeholder="<?php echo $mailOn ? '用于接收通知与找回密码' : '选填，用于接收通知与找回密码'; ?>"<?php echo $defType === 'email' ? ' required' : ''; ?>>
             </div>
-            <div class="form-hint" id="code-hint">点击「获取验证码」，验证码将发送到上方邮箱</div>
+            <?php if ($mailOn): ?>
+            <div class="form-item">
+                <label class="form-label">邮箱验证码</label>
+                <div class="captcha-row">
+                    <input class="form-input" type="text" name="email_code" maxlength="6" placeholder="6 位数字验证码">
+                    <button class="btn-plain" type="button" id="btn-sendcode">获取验证码</button>
+                </div>
+                <div class="form-hint" id="code-hint">点击「获取验证码」，验证码将发送到上方邮箱</div>
+            </div>
+            <?php endif; ?>
         </div>
-        <?php elseif ($capOn && $regMode === 'turnstile'): ?>
-        <div class="form-item">
-            <label class="form-label">安全验证</label>
-            <?php echo turnstile_widget_html(); ?>
+        <?php endif; ?>
+        <?php if ($phoneOn): ?>
+        <div id="regPhoneBox" style="<?php echo $defType === 'phone' ? '' : 'display:none'; ?>">
+            <div class="form-item">
+                <label class="form-label">手机号</label>
+                <input class="form-input" type="tel" name="phone" id="reg-phone" value="<?php echo e(trim((string)($_POST['phone'] ?? ''))); ?>" maxlength="11" placeholder="11 位手机号，用于接收短信验证码"<?php echo $defType === 'phone' ? ' required' : ''; ?>>
+            </div>
+            <div class="form-item">
+                <label class="form-label">短信验证码</label>
+                <div class="captcha-row">
+                    <input class="form-input" type="text" name="sms_code" id="reg-sms-code" maxlength="6" placeholder="6 位数字验证码">
+                    <button class="btn-plain" type="button" id="btn-sendphone">获取验证码</button>
+                </div>
+                <div class="form-hint" id="sms-code-hint">点击「获取验证码」，验证码将以短信发送到上方手机号</div>
+            </div>
         </div>
-        <?php elseif ($capOn): ?>
+        <?php endif; ?>
+        <?php if (!$mailOn && !$phoneOn && $capOn): ?>
         <div class="form-item">
             <label class="form-label">图形验证码</label>
             <div class="captcha-row">
@@ -276,6 +361,10 @@ a{text-decoration:none;color:inherit}img{vertical-align:middle}
             </div>
         </div>
         <?php endif; ?>
+        <div class="form-item">
+            <label class="form-label">代理商邀请码（选填）</label>
+            <input class="form-input" type="text" name="invite_code" value="<?php echo e(strtoupper(trim((string)($_POST['invite_code'] ?? '')))); ?>" maxlength="10" placeholder="填写后自动绑定邀请您的代理商" style="text-transform:uppercase">
+        </div>
         <button class="login-btn" type="submit">注 册</button>
     </form>
     <div class="login-links">
@@ -284,7 +373,7 @@ a{text-decoration:none;color:inherit}img{vertical-align:middle}
     </div>
 </div>
 
-<?php if ($mailOn && $capOn && $regMode === 'image'): ?>
+<?php if (($mailOn || $phoneOn) && $capOn && $regMode === 'image'): ?>
 <div class="veil" id="captcha-veil">
     <div class="vcap">
         <div class="vcap-title">安全验证</div>
@@ -305,14 +394,20 @@ a{text-decoration:none;color:inherit}img{vertical-align:middle}
 <?php endif; ?>
 
 <script>
-<?php if ($mailOn): ?>
+<?php if ($mailOn || $phoneOn): ?>
 (function () {
-    var emailInput = document.getElementById('reg-email');
-    var btn = document.getElementById('btn-sendcode');
-    var hint = document.getElementById('code-hint');
     var csrf = (document.querySelector('input[name=csrf]') || {}).value || '';
-    var veil = null; 
-
+    var emailInput = document.getElementById('reg-email');
+    var phoneInput = document.getElementById('reg-phone');
+    var btnEmail = document.getElementById('btn-sendcode');
+    var btnPhone = document.getElementById('btn-sendphone');
+    var hintEmail = document.getElementById('code-hint');
+    var hintPhone = document.getElementById('sms-code-hint');
+    var typeInput = document.getElementById('regTypeInput');
+    var emailBox = document.getElementById('regEmailBox');
+    var phoneBox = document.getElementById('regPhoneBox');
+    var veil = null;
+    var veilType = 'email';
 
     function toast(msg) {
         var old = document.getElementById('jc-toast');
@@ -335,15 +430,16 @@ a{text-decoration:none;color:inherit}img{vertical-align:middle}
         }, 3000);
     }
 
-
-    var timer = null;
-    function countdown(left) {
-        if (timer) { clearInterval(timer); timer = null; }
+    var timers = { email: null, phone: null };
+    function countdown(type, left) {
+        var btn = type === 'email' ? btnEmail : btnPhone;
+        if (!btn) return;
+        if (timers[type]) { clearInterval(timers[type]); timers[type] = null; }
         btn.disabled = true;
-        timer = setInterval(function () {
+        timers[type] = setInterval(function () {
             if (left <= 0) {
-                clearInterval(timer);
-                timer = null;
+                clearInterval(timers[type]);
+                timers[type] = null;
                 btn.disabled = false;
                 btn.textContent = '获取验证码';
                 return;
@@ -353,59 +449,98 @@ a{text-decoration:none;color:inherit}img{vertical-align:middle}
         }, 1000);
     }
     var initWait = <?php echo (int)($_SESSION['register_code_wait'] ?? 0); ?>;
-    if (initWait > 0) countdown(initWait);
+    if (initWait > 0) { countdown('email', initWait); countdown('phone', initWait); }
 
-    function send(fd, failCb) {
-        btn.disabled = true;
+    function curType() { return typeInput ? typeInput.value : '<?php echo e($defType); ?>'; }
+
+    function switchType(t) {
+        if (!typeInput) return;
+        typeInput.value = t;
+        if (emailBox) emailBox.style.display = t === 'email' ? '' : 'none';
+        if (phoneBox) phoneBox.style.display = t === 'phone' ? '' : 'none';
+        if (emailInput) emailInput.required = (t === 'email') && <?php echo $mailOn ? 'true' : 'false'; ?>;
+        if (phoneInput) phoneInput.required = (t === 'phone');
+        var tabs = document.querySelectorAll('.reg-type-tab');
+        for (var i = 0; i < tabs.length; i++) {
+            tabs[i].classList.toggle('active', tabs[i].dataset.type === t);
+        }
+    }
+    var tabBtns = document.querySelectorAll('.reg-type-tab');
+    for (var ti = 0; ti < tabBtns.length; ti++) {
+        tabBtns[ti].addEventListener('click', function () { switchType(this.dataset.type); });
+    }
+    switchType(curType());
+
+    function send(fd, type, failCb) {
+        var btn = type === 'email' ? btnEmail : btnPhone;
+        if (btn) btn.disabled = true;
         fetch(location.pathname, { method: 'POST', body: fd, credentials: 'same-origin' })
             .then(function (r) { return r.json(); })
             .then(function (j) {
                 if (j.ok) {
                     if (veil) veil.classList.remove('on');
-                    hint.textContent = '验证码已发送至 ' + (j.masked || emailInput.value.trim()) + '，10 分钟内有效';
-                    toast('验证码已发送，请查收邮件');
-                    countdown(60);
+                    var masked = j.masked || (type === 'email' ? emailInput.value.trim() : phoneInput.value.trim());
+                    var hint = type === 'email' ? hintEmail : hintPhone;
+                    if (hint) hint.textContent = '验证码已发送至 ' + masked + '，10 分钟内有效';
+                    toast('验证码已发送');
+                    countdown('email', 60);
+                    countdown('phone', 60);
                 } else {
-                    btn.disabled = false;
+                    if (btn) btn.disabled = false;
                     failCb ? failCb(j.msg) : toast(j.msg);
                 }
             })
             .catch(function () {
-                btn.disabled = false;
+                if (btn) btn.disabled = false;
                 failCb ? failCb('网络异常，请稍后重试') : toast('网络异常，请稍后重试');
             });
     }
 
-    function baseForm() {
+    function baseForm(type) {
         var fd = new FormData();
         fd.append('action', 'sendcode');
         fd.append('ajax', '1');
+        fd.append('type', type);
         fd.append('csrf', csrf);
-        fd.append('email', emailInput.value.trim());
+        if (type === 'email') {
+            fd.append('email', emailInput ? emailInput.value.trim() : '');
+        } else {
+            fd.append('phone', phoneInput ? phoneInput.value.trim() : '');
+        }
         return fd;
     }
 
     function emailOk() {
+        if (!emailInput || emailInput.offsetParent === null) return true;
         var v = emailInput.value.trim();
         if (!v || v.indexOf('@') < 1) { toast('请先正确填写邮箱地址'); emailInput.focus(); return false; }
         return true;
     }
 
+    function phoneOk() {
+        if (!phoneInput) return true;
+        var v = phoneInput.value.trim();
+        if (!/^1[3-9]\d{9}$/.test(v)) { toast('请先正确填写手机号'); phoneInput.focus(); return false; }
+        return true;
+    }
+
     <?php if ($capOn && $regMode === 'turnstile'): ?>
 
-    btn.addEventListener('click', function () {
-        if (btn.disabled || !emailOk()) return;
+    function withTurnstile(type) {
         var token = '';
         var tEl = document.querySelector('[name=cf-turnstile-response]');
         if (tEl) token = tEl.value;
         if (!token) { toast('请先完成 Turnstile 人机验证'); return; }
-        var fd = baseForm();
+        var fd = baseForm(type);
         fd.append('cf-turnstile-response', token);
-        send(fd);
-    });
+        send(fd, type);
+    }
+    if (btnEmail) btnEmail.addEventListener('click', function () { if (!btnEmail.disabled && emailOk()) withTurnstile('email'); });
+    if (btnPhone) btnPhone.addEventListener('click', function () { if (!btnPhone.disabled && phoneOk()) withTurnstile('phone'); });
+
     <?php elseif ($capOn && $regMode === 'geetest'): ?>
 
-    var gtObj = null, gtReady = false, gtLoading = false, gtInited = false, gtPending = false;
+    var gtObj = null, gtReady = false, gtLoading = false, gtInited = false, gtPending = false, gtType = 'email';
     function gtInit() {
         if (gtInited) return;
         gtInited = true;
@@ -422,12 +557,12 @@ a{text-decoration:none;color:inherit}img{vertical-align:middle}
             c.onSuccess(function () {
                 var r = c.getValidate();
                 if (!r) return;
-                var fd = baseForm();
+                var fd = baseForm(gtType);
                 fd.append('gt_lot_number', r.lot_number);
                 fd.append('gt_captcha_output', r.captcha_output);
                 fd.append('gt_pass_token', r.pass_token);
                 fd.append('gt_gen_time', r.gen_time);
-                send(fd);
+                send(fd, gtType);
             });
             c.onError(function () { toast('行为验证出错，请重试'); });
         });
@@ -442,8 +577,8 @@ a{text-decoration:none;color:inherit}img{vertical-align:middle}
         s.onerror = function () { gtLoading = false; toast('验证组件加载失败，请检查网络后重试'); };
         document.head.appendChild(s);
     }
-    btn.addEventListener('click', function () {
-        if (btn.disabled || !emailOk()) return;
+    function gtGo(type) {
+        gtType = type;
         if (!gtReady || !gtObj) {
             gtLoad();
             gtPending = true;
@@ -451,9 +586,12 @@ a{text-decoration:none;color:inherit}img{vertical-align:middle}
             return;
         }
         gtObj.showCaptcha();
-    });
+    }
+    if (btnEmail) btnEmail.addEventListener('click', function () { if (!btnEmail.disabled && emailOk()) { gtLoad(); gtGo('email'); } });
+    if (btnPhone) btnPhone.addEventListener('click', function () { if (!btnPhone.disabled && phoneOk()) { gtLoad(); gtGo('phone'); } });
+    if (emailInput) emailInput.addEventListener('focusin', gtLoad);
+    if (phoneInput) phoneInput.addEventListener('focusin', gtLoad);
 
-    emailInput.addEventListener('focusin', gtLoad);
     <?php else: ?>
 
     veil = document.getElementById('captcha-veil');
@@ -468,24 +606,27 @@ a{text-decoration:none;color:inherit}img{vertical-align:middle}
         vcapInput.value = '';
         vcapInput.focus();
     }
-    btn.addEventListener('click', function () {
-        if (btn.disabled || !emailOk()) return;
+    function openVeil(type) {
+        veilType = type;
         vcapErr.style.display = 'none';
         vcapInput.value = '';
         vcapRefresh();
         veil.classList.add('on');
         setTimeout(function () { vcapInput.focus(); }, 50);
-    });
+    }
+    if (btnEmail) btnEmail.addEventListener('click', function () { if (!btnEmail.disabled && emailOk()) openVeil('email'); });
+    if (btnPhone) btnPhone.addEventListener('click', function () { if (!btnPhone.disabled && phoneOk()) openVeil('phone'); });
     document.getElementById('vcap-cancel').addEventListener('click', function () { veil.classList.remove('on'); });
     veil.addEventListener('click', function (e) { if (e.target === veil) veil.classList.remove('on'); });
     document.getElementById('vcap-ok').addEventListener('click', function () {
         var v = vcapInput.value.trim();
         if (v === '') { vcapFail('请输入图中数字'); return; }
-        var fd = baseForm();
+        var fd = baseForm(veilType);
         fd.append('captcha', v);
-        send(fd, vcapFail);
+        send(fd, veilType, vcapFail);
     });
     vcapInput.addEventListener('keydown', function (e) { if (e.key === 'Enter') document.getElementById('vcap-ok').click(); });
+
     <?php endif; ?>
 })();
 <?php else: ?>
@@ -495,7 +636,7 @@ a{text-decoration:none;color:inherit}img{vertical-align:middle}
 <?php if ($capOn && $regMode === 'turnstile'): ?>
 <?php echo turnstile_script_html(); ?>
 <?php endif; ?>
-<?php if ($error !== '' && !$mailOn && $regMode === 'image'): ?>
+<?php if ($error !== '' && !$mailOn && !$phoneOn && $regMode === 'image'): ?>
 <script>(function () { var i = document.querySelector('.captcha-img'); if (i) { i.src = i.src.split('?')[0] + '?t=' + Date.now(); } })();</script>
 <?php endif; ?>
 </body>

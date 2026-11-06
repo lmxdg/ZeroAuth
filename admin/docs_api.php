@@ -660,12 +660,12 @@ TXT
 
 <section class="card" id="sec-plugin">
     <h2 class="card-title">十三、插件开发</h2>
-    <p class="card-desc">插件采用文件驱动：系统扫描 <code>plugin/*/Plugin.php</code>，放入目录即被识别，再到后台「应用商店」启用。完整说明见根目录 <code>docs/插件开发文档.md</code>。</p>
+    <p class="card-desc">插件采用文件驱动：系统扫描 <code>plugin/*/Plugin.php</code>，放入目录即被识别，再到后台「插件商店」启用。完整说明见根目录 <code>docs/插件开发文档.md</code>。</p>
     <?php echo doc_pre(<<<'TXT'
 plugin/
 └── myplug/
     ├── Plugin.php       必需：返回插件元数据数组
-    ├── icon.svg         建议：应用商店图标
+    ├── icon.svg         建议：插件商店图标
     └── ...              业务文件
 
 <?php

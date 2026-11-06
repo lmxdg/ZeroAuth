@@ -8,8 +8,8 @@ define('ROOT_PATH', dirname(__DIR__));
 define('RUNTIME_PATH', ROOT_PATH . '/runtime');
 define('PRODUCT_NAME', 'ZeroAuth');
 define('PRODUCT_FULLNAME', 'ZeroAuth 云鉴权 软件授权 & 域名授权管理系统');
-define('PRODUCT_VERSION', '2.1.5');
-define('SYS_VERSION', '2.0.5');
+define('PRODUCT_VERSION', '2.2.0');
+define('SYS_VERSION', '2.1.0');
 define('PRODUCT_AUTHOR_ORIGINAL', 'APE开发项目组-玄猿工坊');
 define('PRODUCT_AUTHOR_DEV', 'MEMZ-LMXDG');
 define('PRODUCT_GITHUB', 'https://github.com/lmxdg/zeroauth');
@@ -841,6 +841,7 @@ require_once ROOT_PATH . '/core/schema_upgrade.php';
 schema_upgrade_boot();
 
 require_once ROOT_PATH . '/core/IpGeo.php';
+require_once ROOT_PATH . '/core/Sms.php';
 require_once ROOT_PATH . '/core/SdkTemplates.php';
 require_once ROOT_PATH . '/core/RemoteNotice.php';
 require_once ROOT_PATH . '/core/Ruin.php';

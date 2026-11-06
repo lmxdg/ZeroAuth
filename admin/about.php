@@ -15,6 +15,7 @@ $envItems = [
     ['OpenSSL 扩展（安全签名）', extension_loaded('openssl') ? '已加载' : '未加载'],
     ['真实 IP 获取', cfg('trust_proxy_ip', '1') === '1' ? '已开启' : '已关闭'],
     ['注册验证码', cfg('register_captcha', '1') === '1' ? '已开启' : '已关闭'],
+    ['手机号注册', cfg('register_phone_enabled', '0') === '1' ? '已开启' : '已关闭'],
     ['官方 QQ 群', PRODUCT_QQ_GROUP],
 ];
 
@@ -53,7 +54,7 @@ admin_header('关于系统', 'about', $admin);
     </div>
     <p class="card-desc" style="line-height:22px">
         本系统提供软件授权、卡密分发、域名授权验证、多应用管理、代理商体系等能力；
-        V2.1 起应用商店支持上传插件包（zip 自动解压安装）、真实 IP 获取全面增强（多 CDN 头 / 多级代理链 / RFC 7239 Forwarded / IPv6）。
+        V2.2.0 起应用商店拆分为主题商店与插件商店，实名 / 验证码 / 短信设置统一迁入系统设置，支持手机号注册（短信宝 / 赛邮）与后台一键在线更新（update.php）。
         插件与主题开发请参见系统 <code>docs/</code> 目录下的《插件开发文档》与《主题开发文档》。
     </p>
 </section>

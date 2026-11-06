@@ -24,7 +24,7 @@ function update_check_fetch(bool $force = false): array
         }
     }
 
-    $result = ['ok' => false, 'checked_at' => time(), 'version' => '', 'tag' => '', 'url' => '', 'name' => '', 'published_at' => '', 'summary' => ''];
+    $result = ['ok' => false, 'checked_at' => time(), 'version' => '', 'tag' => '', 'url' => '', 'name' => '', 'published_at' => '', 'summary' => '', 'zip_url' => '', 'zip_name' => '', 'zip_size' => 0];
     $api = '';
     if (defined('PRODUCT_GITHUB') && PRODUCT_GITHUB !== '') {
         $repo = trim(parse_url(PRODUCT_GITHUB, PHP_URL_PATH) ?? '', '/');
@@ -44,6 +44,24 @@ function update_check_fetch(bool $force = false): array
                 $result['published_at'] = trim((string)($j['published_at'] ?? ''));
                 $body = trim((string)($j['body'] ?? ''));
                 $result['summary'] = mb_substr(preg_replace('/\r\n|\r/', "\n", $body) ?? '', 0, 400);
+                // 捕获 Release 附件中的 zip 安装包（一键更新用），优先体积最大的 zip 资产
+                $zip = ['url' => '', 'name' => '', 'size' => 0];
+                foreach ((array)($j['assets'] ?? []) as $asset) {
+                    if (!is_array($asset)) {
+                        continue;
+                    }
+                    $aUrl = trim((string)($asset['browser_download_url'] ?? ''));
+                    $aName = trim((string)($asset['name'] ?? ''));
+                    if ($aUrl === '' || strtolower(pathinfo($aName, PATHINFO_EXTENSION)) !== 'zip') {
+                        continue;
+                    }
+                    if ((int)($asset['size'] ?? 0) >= $zip['size']) {
+                        $zip = ['url' => $aUrl, 'name' => $aName, 'size' => (int)($asset['size'] ?? 0)];
+                    }
+                }
+                $result['zip_url'] = $zip['url'];
+                $result['zip_name'] = $zip['name'];
+                $result['zip_size'] = $zip['size'];
             }
         }
     }
@@ -59,4 +77,22 @@ function update_has_new(): bool
         return false;
     }
     return version_compare((string)$r['version'], (string)PRODUCT_VERSION, '>');
+}
+
+// 一键更新安装包来源：优先 Release zip 资产，缺失时回退仓库源码 zip（codeload）
+function update_zip_source(array $info): array
+{
+    if (($info['zip_url'] ?? '') !== '') {
+        return ['url' => (string)$info['zip_url'], 'name' => (string)$info['zip_name'], 'size' => (int)$info['zip_size'], 'from' => 'release'];
+    }
+    if (defined('PRODUCT_GITHUB') && PRODUCT_GITHUB !== '' && ($info['tag'] ?? '') !== '') {
+        $repo = trim(parse_url(PRODUCT_GITHUB, PHP_URL_PATH) ?? '', '/');
+        return [
+            'url'  => 'https://codeload.github.com/' . $repo . '/zip/refs/tags/' . rawurlencode((string)$info['tag']),
+            'name' => $repo . '-' . (string)$info['tag'] . '.zip',
+            'size' => 0,
+            'from' => 'source',
+        ];
+    }
+    return ['url' => '', 'name' => '', 'size' => 0, 'from' => ''];
 }

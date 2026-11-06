@@ -7,9 +7,10 @@ function admin_header(string $title, string $active, array $admin): void
 {
     $groups = [
         ['label' => '', 'items' => [
-            'dashboard' => ['控制台', 'dashboard.php', 'menu-home'],
-            'store'     => ['应用商店', 'store.php', 'menu-download'],
-            'report'    => ['数据报表', 'report_data.php', 'menu-activity'],
+            'dashboard'   => ['控制台', 'dashboard.php', 'menu-home'],
+            'plugin_store'=> ['插件商店', 'plugin_store.php', 'menu-download'],
+            'theme_store' => ['主题商店', 'theme_store.php', 'menu-app'],
+            'report'      => ['数据报表', 'report_data.php', 'menu-activity'],
         ]],
         ['label' => '业务管理', 'icon' => 'group-biz', 'items' => [
             'app'      => ['应用管理', 'app_manage.php', 'menu-app'],
@@ -186,7 +187,8 @@ function admin_header(string $title, string $active, array $admin): void
                             <div class="topbar-panel-title">快速入口</div>
                             <div class="quick-grid">
                                 <a class="quick-item" href="dashboard.php"><?php echo ui_icon('menu-home', 'dashboard', 'quick-ico'); ?><span>控制台</span></a>
-                                <a class="quick-item" href="store.php"><?php echo ui_icon('menu-download', 'store', 'quick-ico'); ?><span>应用商店</span></a>
+                                <a class="quick-item" href="plugin_store.php"><?php echo ui_icon('menu-download', 'plugin_store', 'quick-ico'); ?><span>插件商店</span></a>
+                                <a class="quick-item" href="theme_store.php"><?php echo ui_icon('menu-app', 'theme_store', 'quick-ico'); ?><span>主题商店</span></a>
                                 <a class="quick-item" href="license_manage.php"><?php echo ui_icon('menu-key', 'license', 'quick-ico'); ?><span>卡密管理</span></a>
                                 <a class="quick-item" href="order_manage.php"><?php echo ui_icon('menu-money', 'order', 'quick-ico'); ?><span>订单管理</span></a>
                                 <a class="quick-item" href="user_manage.php"><?php echo ui_icon('menu-user', 'user', 'quick-ico'); ?><span>用户管理</span></a>

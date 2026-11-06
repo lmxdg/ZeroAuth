@@ -2,6 +2,7 @@
 declare(strict_types=1);
 
 require dirname(__DIR__) . '/core/bootstrap.php';
+require_once dirname(__DIR__) . '/core/PluginSys.php';
 require dirname(__DIR__) . '/core/Mail.php';
 require dirname(__DIR__) . '/core/layout_admin.php';
 
@@ -61,7 +62,6 @@ if (is_post()) {
     }
 
     if ($action === 'verify') {
-        set_cfg('register_captcha', (($_POST['register_captcha'] ?? '1') === '1') ? '1' : '0', '注册验证码开关 1开启 0关闭（开启时注册流程需通过当前验证方式）');
         set_cfg('trust_proxy_ip', (($_POST['trust_proxy_ip'] ?? '1') === '1') ? '1' : '0', '真实IP获取 1开启(解析CF/X-Forwarded-For等代理头) 0关闭(仅用REMOTE_ADDR)');
         set_cfg('ip_geo_enabled', (($_POST['ip_geo_enabled'] ?? '1') === '1') ? '1' : '0', 'IP归属地识别 1开启(调用ip9.com.cn自动识别访客省市/境外地区) 0关闭');
         $noticeUrl = trim((string)($_POST['remote_notice_url'] ?? ''));
@@ -71,9 +71,85 @@ if (is_post()) {
             set_cfg('remote_notice_url', $noticeUrl, '远程公告地址(返回JSON数组,留空使用系统默认) - 控制台展示远程公告');
         }
         if ($error === '') {
-            audit('config', 'verify_update', 1, (int)$admin['id'], '注册验证码/真实IP/IP归属地/远程公告设置已更新');
+            audit('config', 'verify_update', 1, (int)$admin['id'], '真实IP/IP归属地/远程公告设置已更新');
             flash_set('ok', '验证设置已保存。');
             redirect('settings.php#geetest');
+        }
+    }
+
+    // 验证码设置：注册验证码开关 + 极验 / Cloudflare Turnstile 人机验证（V2.2.0 自应用商店迁移）
+    if ($action === 'captcha_save') {
+        set_cfg('register_captcha', (($_POST['register_captcha'] ?? '1') === '1') ? '1' : '0', '注册验证码开关 1开启 0关闭（开启时注册流程需通过当前验证方式）');
+        plugin_status_set('turnstile', isset($_POST['turnstile_enabled']) ? 1 : 2);
+        $tkv = ['turnstile_site_key' => trim((string)($_POST['turnstile_site_key'] ?? ''))];
+        $tsk = trim((string)($_POST['turnstile_secret_key'] ?? ''));
+        if ($tsk !== '') {
+            $tkv['turnstile_secret_key'] = $tsk;
+        }
+        plugin_cfg_set('turnstile', $tkv);
+        plugin_status_set('geetest', isset($_POST['geetest_enabled']) ? 1 : 2);
+        $gkv = ['geetest_captcha_id' => trim((string)($_POST['geetest_captcha_id'] ?? ''))];
+        $gkey = trim((string)($_POST['geetest_captcha_key'] ?? ''));
+        if ($gkey !== '') {
+            $gkv['geetest_captcha_key'] = $gkey;
+        }
+        plugin_cfg_set('geetest', $gkv);
+        audit('config', 'captcha_update', 1, (int)$admin['id'], '验证码设置已更新（Turnstile：' . (isset($_POST['turnstile_enabled']) ? '启用' : '停用') . '，极验：' . (isset($_POST['geetest_enabled']) ? '启用' : '停用') . '）');
+        flash_set('ok', '验证码设置已保存，保存即生效。');
+        redirect('settings.php#captcha');
+    }
+
+    // 实名设置：内置实名认证 + 腾讯云人脸核身（V2.2.0 自应用商店迁移）
+    if ($action === 'realname_save') {
+        plugin_status_set('builtin', isset($_POST['builtin_enabled']) ? 1 : 2);
+        plugin_status_set('tencent_faceid', isset($_POST['faceid_enabled']) ? 1 : 2);
+        $fkv = [
+            'secret_id'    => trim((string)($_POST['faceid_secret_id'] ?? '')),
+            'rule_id'      => trim((string)($_POST['faceid_rule_id'] ?? '')),
+            'auto_pass'    => isset($_POST['faceid_auto_pass']) ? '1' : '0',
+            'require_name' => isset($_POST['faceid_require_name']) ? '1' : '0',
+        ];
+        $fkey = trim((string)($_POST['faceid_secret_key'] ?? ''));
+        if ($fkey !== '') {
+            $fkv['secret_key'] = $fkey;
+        }
+        plugin_cfg_set('tencent_faceid', $fkv);
+        audit('config', 'realname_update', 1, (int)$admin['id'], '实名设置已更新（内置实名：' . (isset($_POST['builtin_enabled']) ? '启用' : '停用') . '，人脸核身：' . (isset($_POST['faceid_enabled']) ? '启用' : '停用') . '）');
+        flash_set('ok', '实名设置已保存，保存即生效。');
+        redirect('settings.php#realname');
+    }
+
+    // 短信设置：手机号注册开关 + 短信宝 / 赛邮 SUBMAIL 服务商配置
+    if ($action === 'sms_save') {
+        set_cfg('register_phone_enabled', (($_POST['register_phone_enabled'] ?? '0') === '1') ? '1' : '0', '手机号注册开关 1开启 0关闭（需同时配置短信服务商）');
+        $provider = strtolower(trim((string)($_POST['sms_provider'] ?? '')));
+        set_cfg('sms_provider', in_array($provider, ['smsbao', 'submail'], true) ? $provider : '', '短信服务商 smsbao=短信宝 submail=赛邮SUBMAIL 空=未配置');
+        set_cfg('sms_sign', mb_substr(trim((string)($_POST['sms_sign'] ?? '')), 0, 16), '短信签名（如：短信宝，勿带【】书名号）');
+        set_cfg('smsbao_user', trim((string)($_POST['smsbao_user'] ?? '')), '短信宝账号');
+        $smsbaoPass = trim((string)($_POST['smsbao_pass'] ?? ''));
+        if ($smsbaoPass !== '') {
+            set_cfg('smsbao_pass', $smsbaoPass, '短信宝密码');
+        }
+        set_cfg('submail_appid', trim((string)($_POST['submail_appid'] ?? '')), '赛邮 SUBMAIL AppID');
+        $submailKey = trim((string)($_POST['submail_appkey'] ?? ''));
+        if ($submailKey !== '') {
+            set_cfg('submail_appkey', $submailKey, '赛邮 SUBMAIL AppKey');
+        }
+        set_cfg('submail_project', trim((string)($_POST['submail_project'] ?? '')), '赛邮 SUBMAIL 模板ID（可选，配置后走 xsend 模板模式，模板需含 @var(code) 变量）');
+        audit('config', 'sms_update', 1, (int)$admin['id'], '短信设置已更新（服务商：' . ($provider !== '' ? $provider : '未配置') . '）');
+        flash_set('ok', '短信设置已保存，保存即生效。');
+        redirect('settings.php#sms');
+    }
+
+    // 短信测试发送
+    if ($action === 'sms_test') {
+        $testPhone = trim((string)($_POST['sms_test_phone'] ?? ''));
+        if (!sms_is_phone($testPhone)) {
+            $error = '请输入正确的 11 位手机号。';
+        } else {
+            $res = sms_code_send('sms_test', $testPhone);
+            flash_set($res['ok'] ? 'ok' : 'error', $res['msg']);
+            redirect('settings.php#sms');
         }
     }
 
@@ -334,13 +410,16 @@ if ($error !== ''): ?>
 <div class="settings-head">
     <div>
         <h1 class="settings-title">系统设置</h1>
-        <p class="settings-sub">按分区管理安全参数、站点信息、邮件通知与模板</p>
+        <p class="settings-sub">按分区管理安全参数、验证码、实名、短信、站点信息与邮件通知</p>
     </div>
 </div>
 
 <div class="settings-tabs" id="settingsTabs">
     <a class="settings-tab" data-tab="security" href="#security">安全参数</a>
-    <a class="settings-tab" data-tab="geetest" href="#geetest">验证与真实IP</a>
+    <a class="settings-tab" data-tab="captcha" href="#captcha">验证码设置</a>
+    <a class="settings-tab" data-tab="geetest" href="#geetest">真实IP与公告</a>
+    <a class="settings-tab" data-tab="realname" href="#realname">实名设置</a>
+    <a class="settings-tab" data-tab="sms" href="#sms">短信设置</a>
     <a class="settings-tab" data-tab="rebate" href="#rebate">邀请返利</a>
     <a class="settings-tab" data-tab="site" href="#site">站点信息</a>
     <a class="settings-tab" data-tab="mail" href="#mail">邮件通知</a>
@@ -407,21 +486,67 @@ if ($error !== ''): ?>
     </form>
 </section>
 
-<section class="card settings-panel" id="panel-geetest">
-    <h2 class="card-title">验证方式与真实 IP</h2>
-    <p class="card-desc">V2.0 起，行为验证已插件化：「极验4.0 行为验证」与「Cloudflare Turnstile 验证」均为独立插件，请在左侧「应用商店」中启用并配置；两者同时启用时 Turnstile 优先。未启用任何验证插件时，自动使用内置图形验证码。行为验证应用于用户中心、代理商中心、管理员后台三端登录/注册/找回密码等场景。</p>
+<section class="card settings-panel" id="panel-captcha">
+    <h2 class="card-title">验证码设置</h2>
+    <p class="card-desc">统一管理三端登录 / 注册 / 找回密码等场景的人机验证：同时启用时 <b>Cloudflare Turnstile 优先</b>，其次<b>极验 4.0</b>，均未启用（或密钥未配置完整）时自动使用内置图形验证码。V2.2.0 起，极验与 Cloudflare Turnstile 小组件统一在此配置（原「插件商店」中的配置入口已迁移至此）。</p>
 
     <form method="post" class="form">
         <?php echo csrf_field(); ?>
-        <input type="hidden" name="action" value="verify">
+        <input type="hidden" name="action" value="captcha_save">
         <div class="form-item">
             <label class="form-label">注册验证码</label>
             <select class="form-input" name="register_captcha" style="max-width:420px">
                 <option value="1" <?php echo cfg('register_captcha', '1') === '1' ? 'selected' : ''; ?>>开启（注册流程需通过验证码/行为验证）</option>
-                <option value="0" <?php echo cfg('register_captcha', '1') !== '1' ? 'selected' : ''; ?>>关闭（注册流程跳过验证码，仅保留邮箱验证码）</option>
+                <option value="0" <?php echo cfg('register_captcha', '1') !== '1' ? 'selected' : ''; ?>>关闭（注册流程跳过验证码，仅保留邮箱/短信验证码）</option>
             </select>
-            <p class="form-hint">关闭后，用户注册环节不再要求图形验证码或行为验证（发送邮箱验证码时同样跳过），请权衡防刷风险</p>
+            <p class="form-hint">关闭后，用户注册环节不再要求图形验证码或行为验证（发送邮箱/短信验证码时同样跳过），请权衡防刷风险</p>
         </div>
+
+        <div class="form-group-title">Cloudflare Turnstile 人机验证</div>
+        <div class="form-item">
+            <label style="display:inline-flex;align-items:center;gap:6px;cursor:pointer">
+                <input type="checkbox" name="turnstile_enabled" value="1" <?php echo plugin_status_get('turnstile') === 1 ? 'checked' : ''; ?>>
+                <span>启用 Turnstile 验证（启用前请先完成下方密钥配置）</span>
+            </label>
+        </div>
+        <div class="form-item">
+            <label class="form-label">站点密钥（Site Key）</label>
+            <input class="form-input" type="text" name="turnstile_site_key" style="max-width:420px" value="<?php echo e(plugin_cfg_get('turnstile', 'turnstile_site_key', '')); ?>" placeholder="Cloudflare Dashboard → Turnstile 创建站点获取">
+        </div>
+        <div class="form-item">
+            <label class="form-label">密钥（Secret Key）</label>
+            <input class="form-input" type="password" name="turnstile_secret_key" style="max-width:420px" value="" placeholder="已配置则留空保持不变" autocomplete="new-password">
+            <p class="form-hint">仅用于服务端校验，保存后不再回显</p>
+        </div>
+
+        <div class="form-group-title">极验 4.0 行为验证</div>
+        <div class="form-item">
+            <label style="display:inline-flex;align-items:center;gap:6px;cursor:pointer">
+                <input type="checkbox" name="geetest_enabled" value="1" <?php echo plugin_status_get('geetest') === 1 ? 'checked' : ''; ?>>
+                <span>启用极验行为验证（启用前请先完成下方密钥配置）</span>
+            </label>
+        </div>
+        <div class="form-item">
+            <label class="form-label">验证 ID（captchaId）</label>
+            <input class="form-input" type="text" name="geetest_captcha_id" style="max-width:420px" value="<?php echo e(plugin_cfg_get('geetest', 'geetest_captcha_id', '')); ?>" placeholder="极验后台（geetest.com）创建「行为验证4.0 - Web」应用获取">
+        </div>
+        <div class="form-item">
+            <label class="form-label">验证 Key（captchaKey）</label>
+            <input class="form-input" type="password" name="geetest_captcha_key" style="max-width:420px" value="" placeholder="已配置则留空保持不变" autocomplete="new-password">
+            <p class="form-hint">仅用于服务端二次校验，保存后不再回显</p>
+        </div>
+
+        <button class="btn-primary" type="submit">保存验证码设置</button>
+    </form>
+</section>
+
+<section class="card settings-panel" id="panel-geetest">
+    <h2 class="card-title">真实 IP 与公告</h2>
+    <p class="card-desc">V2.2.0 起，人机验证小组件（极验 4.0 / Cloudflare Turnstile）的启用与配置已统一迁移至「验证码设置」分区；本分区保留真实 IP 获取、IP 归属地识别与远程公告设置。</p>
+
+    <form method="post" class="form">
+        <?php echo csrf_field(); ?>
+        <input type="hidden" name="action" value="verify">
         <div class="form-item">
             <label class="form-label">真实 IP 获取</label>
             <select class="form-input" name="trust_proxy_ip" style="max-width:420px">
@@ -447,6 +572,156 @@ if ($error !== ''): ?>
         </div>
         <button class="btn-primary" type="submit">保存验证设置</button>
     </form>
+</section>
+
+<section class="card settings-panel" id="panel-realname">
+    <h2 class="card-title">实名设置</h2>
+    <p class="card-desc">统一管理实名认证插件（V2.2.0 起，原「插件商店」中的两个实名插件配置入口迁移至此）：<b>内置实名认证</b>为姓名 + 身份证号本地校验、后台人工审核；<b>腾讯云人脸核身</b>启用后用户端实名优先走刷脸核身流程，停用后自动回退内置实名。审核记录与统计见「用户中心 → 实名认证审核」。</p>
+
+    <form method="post" class="form">
+        <?php echo csrf_field(); ?>
+        <input type="hidden" name="action" value="realname_save">
+
+        <div class="form-group-title">内置实名认证</div>
+        <div class="form-item">
+            <label style="display:inline-flex;align-items:center;gap:6px;cursor:pointer">
+                <input type="checkbox" name="builtin_enabled" value="1" <?php echo plugin_status_get('builtin') === 1 ? 'checked' : ''; ?>>
+                <span>启用内置实名认证（停用后用户端实名入口关闭）</span>
+            </label>
+            <p class="form-hint">姓名 + 身份证号（GB11643 校验位）本地校验，证件号 AES 加密存储，提交后进入后台人工审核，无需任何外部服务</p>
+        </div>
+
+        <div class="form-group-title">腾讯云人脸核身</div>
+        <div class="form-item">
+            <label style="display:inline-flex;align-items:center;gap:6px;cursor:pointer">
+                <input type="checkbox" name="faceid_enabled" value="1" <?php echo plugin_status_get('tencent_faceid') === 1 ? 'checked' : ''; ?>>
+                <span>启用人脸核身（启用时优先于内置实名，用户端自动切换为刷脸流程）</span>
+            </label>
+        </div>
+        <div class="form-item">
+            <label class="form-label">SecretId</label>
+            <input class="form-input" type="text" name="faceid_secret_id" style="max-width:420px" value="<?php echo e(plugin_cfg_get('tencent_faceid', 'secret_id', '')); ?>" placeholder="腾讯云控制台 → 访问管理 → API 密钥管理">
+        </div>
+        <div class="form-item">
+            <label class="form-label">SecretKey</label>
+            <input class="form-input" type="password" name="faceid_secret_key" style="max-width:420px" value="" placeholder="已配置则留空保持不变" autocomplete="new-password">
+            <p class="form-hint">仅服务端使用（TC3-HMAC-SHA256 签名），保存后不再回显</p>
+        </div>
+        <div class="form-item">
+            <label class="form-label">RuleId（业务流程 ID）</label>
+            <input class="form-input" type="text" name="faceid_rule_id" style="max-width:420px" value="<?php echo e(plugin_cfg_get('tencent_faceid', 'rule_id', '')); ?>" placeholder="人脸核身控制台「自助接入」创建的业务流程 ID（纯数字）">
+        </div>
+        <div class="form-item">
+            <label style="display:inline-flex;align-items:center;gap:6px;cursor:pointer">
+                <input type="checkbox" name="faceid_auto_pass" value="1" <?php echo plugin_cfg_get('tencent_faceid', 'auto_pass', '1') === '1' ? 'checked' : ''; ?>>
+                <span>核验通过后自动完成实名（关闭则转为「待审核」人工复核）</span>
+            </label>
+        </div>
+        <div class="form-item">
+            <label style="display:inline-flex;align-items:center;gap:6px;cursor:pointer">
+                <input type="checkbox" name="faceid_require_name" value="1" <?php echo plugin_cfg_get('tencent_faceid', 'require_name', '1') === '1' ? 'checked' : ''; ?>>
+                <span>发起核身前要求填写姓名与证件号（权威源比对，推荐）</span>
+            </label>
+        </div>
+
+        <button class="btn-primary" type="submit">保存实名设置</button>
+    </form>
+</section>
+
+<section class="card settings-panel" id="panel-sms">
+    <h2 class="card-title">短信与手机号注册</h2>
+    <p class="card-desc">开启手机号注册后，用户中心注册页支持「手机号 + 短信验证码」注册（邮箱转为选填）。支持对接<b>短信宝（smsbao.com）</b>与<b>赛邮 SUBMAIL（mysubmail.com）</b>；短信验证码 60 秒重发限频、10 分钟有效、验证一次即销毁。</p>
+
+    <div style="display:flex;flex-wrap:wrap;gap:32px;align-items:flex-start">
+        <form method="post" class="form" style="flex:1;min-width:420px;max-width:640px">
+            <?php echo csrf_field(); ?>
+            <input type="hidden" name="action" value="sms_save">
+            <div class="form-item">
+                <label class="form-label">手机号注册</label>
+                <select class="form-input" name="register_phone_enabled" style="max-width:420px">
+                    <option value="1" <?php echo cfg('register_phone_enabled', '0') === '1' ? 'selected' : ''; ?>>开启（注册页展示手机号注册方式）</option>
+                    <option value="0" <?php echo cfg('register_phone_enabled', '0') !== '1' ? 'selected' : ''; ?>>关闭（仅邮箱注册）</option>
+                </select>
+                <p class="form-hint">需同时配置下方短信服务商并确保账户可用，否则注册页会自动隐藏手机号注册入口</p>
+            </div>
+            <div class="form-item">
+                <label class="form-label">短信服务商</label>
+                <select class="form-input" name="sms_provider" id="sms-provider" style="max-width:420px">
+                    <option value="" <?php echo cfg('sms_provider', '') === '' ? 'selected' : ''; ?>>未配置（不发送短信）</option>
+                    <option value="smsbao" <?php echo cfg('sms_provider', '') === 'smsbao' ? 'selected' : ''; ?>>短信宝（smsbao.com）</option>
+                    <option value="submail" <?php echo cfg('sms_provider', '') === 'submail' ? 'selected' : ''; ?>>赛邮 SUBMAIL（mysubmail.com）</option>
+                </select>
+            </div>
+
+            <div id="smsBox-smsbao" style="display:none">
+                <div class="form-group-title">短信宝配置</div>
+                <div class="form-item">
+                    <label class="form-label">短信宝账号</label>
+                    <input class="form-input" type="text" name="smsbao_user" style="max-width:420px" value="<?php echo e(cfg('smsbao_user', '')); ?>" placeholder="短信宝用户名">
+                </div>
+                <div class="form-item">
+                    <label class="form-label">短信宝密码</label>
+                    <input class="form-input" type="password" name="smsbao_pass" style="max-width:420px" value="" placeholder="已配置则留空保持不变" autocomplete="new-password">
+                    <p class="form-hint">接口调用使用密码 MD5，保存后不再回显</p>
+                </div>
+            </div>
+
+            <div id="smsBox-submail" style="display:none">
+                <div class="form-group-title">赛邮 SUBMAIL 配置</div>
+                <div class="form-item">
+                    <label class="form-label">AppID</label>
+                    <input class="form-input" type="text" name="submail_appid" style="max-width:420px" value="<?php echo e(cfg('submail_appid', '')); ?>" placeholder="SUBMAIL 应用集成中创建的短信应用 ID">
+                </div>
+                <div class="form-item">
+                    <label class="form-label">AppKey</label>
+                    <input class="form-input" type="password" name="submail_appkey" style="max-width:420px" value="" placeholder="已配置则留空保持不变" autocomplete="new-password">
+                </div>
+                <div class="form-item">
+                    <label class="form-label">模板 ID（选填）</label>
+                    <input class="form-input" type="text" name="submail_project" style="max-width:420px" value="<?php echo e(cfg('submail_project', '')); ?>" placeholder="留空走内容模式；填写后走 xsend 模板模式">
+                    <p class="form-hint">模板模式需在 SUBMAIL 创建含 <code>@var(code)</code> 文本变量的短信模板；内容模式直接发送验证码正文（正文须含已报备的短信签名）</p>
+                </div>
+            </div>
+
+            <div class="form-item">
+                <label class="form-label">短信签名（共用）</label>
+                <input class="form-input" type="text" name="sms_sign" style="max-width:420px" value="<?php echo e(cfg('sms_sign', '')); ?>" placeholder="如：ZeroAuth（勿带【】书名号）">
+                <p class="form-hint">将以「【签名】您的验证码:123456，10分钟内有效…」拼接发送；短信宝必须在平台报备过签名，赛邮内容模式同样要求正文携带签名</p>
+            </div>
+
+            <button class="btn-primary" type="submit">保存短信设置</button>
+        </form>
+
+        <div style="width:300px;flex-shrink:0;min-width:260px;display:flex;flex-direction:column;gap:24px">
+            <div>
+                <div style="font-size:14px;font-weight:600;margin-bottom:10px">配置状态</div>
+                <div style="display:flex;flex-direction:column;gap:10px;font-size:14px">
+                    <div style="display:flex;justify-content:space-between;align-items:center;gap:12px">
+                        <span style="color:var(--text-sub,#4E5969)">手机号注册</span>
+                        <span class="tag <?php echo cfg('register_phone_enabled', '0') === '1' ? 'tag-ok' : 'tag-off'; ?>"><?php echo cfg('register_phone_enabled', '0') === '1' ? '已开启' : '已关闭'; ?></span>
+                    </div>
+                    <div style="display:flex;justify-content:space-between;align-items:center;gap:12px">
+                        <span style="color:var(--text-sub,#4E5969)">短信服务商</span>
+                        <span style="font-weight:600"><?php echo ['' => '未配置', 'smsbao' => '短信宝', 'submail' => '赛邮 SUBMAIL'][(string)cfg('sms_provider', '')] ?? '未配置'; ?></span>
+                    </div>
+                    <div style="display:flex;justify-content:space-between;align-items:center;gap:12px">
+                        <span style="color:var(--text-sub,#4E5969)">服务状态</span>
+                        <span class="tag <?php echo sms_provider_ready() ? 'tag-ok' : 'tag-off'; ?>"><?php echo sms_provider_ready() ? '配置完整' : '未就绪'; ?></span>
+                    </div>
+                </div>
+            </div>
+            <div style="border-top:1px solid var(--border,#E5E6EB);padding-top:20px">
+                <div style="font-size:14px;font-weight:600;margin-bottom:10px">测试发送</div>
+                <form method="post">
+                    <?php echo csrf_field(); ?>
+                    <input type="hidden" name="action" value="sms_test">
+                    <input class="form-input" type="text" name="sms_test_phone" placeholder="用于测试的手机号" style="margin-bottom:10px" maxlength="11">
+                    <button class="btn-primary" type="submit" style="width:100%">发送测试短信</button>
+                </form>
+                <div class="form-hint" style="margin-top:8px">按验证码模板向该手机号发送一条测试短信（60 秒限频）；失败原因见 runtime/sms_error.log</div>
+            </div>
+        </div>
+    </div>
 </section>
 
 <section class="card settings-panel" id="panel-rebate">
@@ -953,6 +1228,20 @@ document.getElementById('smtp-preset').addEventListener('change', function () {
     document.getElementById('smtp-port').value = o.dataset.port || '465';
     document.getElementById('smtp-secure').value = o.dataset.secure || 'ssl';
 });
+
+(function () {
+    var smsProv = document.getElementById('sms-provider');
+    if (!smsProv) return;
+    function smsToggle() {
+        var v = smsProv.value;
+        var b1 = document.getElementById('smsBox-smsbao');
+        var b2 = document.getElementById('smsBox-submail');
+        if (b1) { b1.style.display = v === 'smsbao' ? '' : 'none'; }
+        if (b2) { b2.style.display = v === 'submail' ? '' : 'none'; }
+    }
+    smsProv.addEventListener('change', smsToggle);
+    smsToggle();
+})();
 
 document.querySelectorAll('.var-chip').forEach(function (btn) {
     btn.addEventListener('click', function () {

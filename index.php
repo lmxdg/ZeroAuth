@@ -100,7 +100,7 @@ if ($tplDir === '') {
     http_response_code(503);
     exit('<!DOCTYPE html><html lang="zh-CN"><head><meta charset="UTF-8"><title>站点维护中</title></head>'
         . '<body style="font-family:sans-serif;text-align:center;padding-top:120px;color:#4E5969">'
-        . '<h2 style="color:#1D2129">站点维护中</h2><p>首页模板插件未启用，请管理员在后台「应用商店」中启用。</p></body></html>');
+        . '<h2 style="color:#1D2129">站点维护中</h2><p>首页模板插件未启用，请管理员在后台「主题商店」中启用。</p></body></html>');
 }
 
 require ROOT_PATH . '/plugin/' . $tplDir . '/home.php';
