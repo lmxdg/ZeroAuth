@@ -8,12 +8,17 @@ define('ROOT_PATH', dirname(__DIR__));
 define('RUNTIME_PATH', ROOT_PATH . '/runtime');
 define('PRODUCT_NAME', 'ZeroAuth');
 define('PRODUCT_FULLNAME', 'ZeroAuth 云鉴权 软件授权 & 域名授权管理系统');
-define('PRODUCT_VERSION', '2.2.0');
+define('PRODUCT_VERSION', '2.2.1');
 define('SYS_VERSION', '2.1.0');
 define('PRODUCT_AUTHOR_ORIGINAL', 'APE开发项目组-玄猿工坊');
 define('PRODUCT_AUTHOR_DEV', 'MEMZ-LMXDG');
 define('PRODUCT_GITHUB', 'https://github.com/lmxdg/zeroauth');
 define('PRODUCT_QQ_GROUP', '882138945');
+
+// 合作伙伴（后台顶部广告位 / 关于系统页展示）
+define('PARTNER_NAME', '冥雾云');
+define('PARTNER_SLOGAN', '高性能云服务器 · 多线 BGP · 多区可选');
+define('PARTNER_URL', 'https://www.cnmrnmb.online/aff/UFFQUCLQ');
 
 if (session_status() !== PHP_SESSION_ACTIVE) {
     session_set_cookie_params([

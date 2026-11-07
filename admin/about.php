@@ -55,8 +55,21 @@ admin_header('关于系统', 'about', $admin);
     <p class="card-desc" style="line-height:22px">
         本系统提供软件授权、卡密分发、域名授权验证、多应用管理、代理商体系等能力；
         V2.2.0 起应用商店拆分为主题商店与插件商店，实名 / 验证码 / 短信设置统一迁入系统设置，支持手机号注册（短信宝 / 赛邮）与后台一键在线更新（update.php）。
+        V2.2.1 修复已知问题并优化性能与使用体验。
         插件与主题开发请参见系统 <code>docs/</code> 目录下的《插件开发文档》与《主题开发文档》。
     </p>
+</section>
+
+<section class="card" style="max-width:860px">
+    <div class="card-title">合作伙伴</div>
+    <a class="partner-card" href="<?php echo e(PARTNER_URL); ?>" target="_blank" rel="noopener noreferrer sponsored" title="<?php echo e(PARTNER_NAME . ' · ' . PARTNER_SLOGAN); ?>">
+        <img class="partner-logo" src="../assets/img/ad/mw-logo.png" alt="<?php echo e(PARTNER_NAME); ?>">
+        <div class="partner-info">
+            <div class="partner-name"><?php echo e(PARTNER_NAME); ?></div>
+            <div class="partner-desc"><?php echo e(PARTNER_SLOGAN); ?> · 助力您的上云之旅</div>
+        </div>
+        <span class="partner-btn">前往官网 →</span>
+    </a>
 </section>
 
 <section class="card" style="max-width:860px">

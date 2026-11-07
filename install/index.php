@@ -13,7 +13,7 @@ define('SCHEMA_FILE', __DIR__ . '/schema.sql');
 define('RUNTIME_PATH', ROOT_PATH . '/runtime');
 define('PRODUCT_NAME', 'ZeroAuth');
 define('PRODUCT_FULLNAME', 'ZeroAuth 云鉴权 软件授权 & 域名授权管理系统');
-define('PRODUCT_VERSION', '2.2.0');
+define('PRODUCT_VERSION', '2.2.1');
 define('SYS_VERSION', '2.1.0');
 define('PRODUCT_AUTHOR_ORIGINAL', 'APE开发项目组-玄猿工坊');
 define('PRODUCT_AUTHOR_DEV', 'MEMZ-LMXDG');

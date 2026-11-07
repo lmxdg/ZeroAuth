@@ -3,6 +3,31 @@
 declare(strict_types=1);
 require_once __DIR__ . '/Ui.php';
 
+/**
+ * 后台顶部广告位（合作伙伴推广）
+ * 图片随包内置：assets/img/ad/mw.png（横幅底图）/ mw-logo.png（品牌标识）
+ */
+function admin_ad_banner(): void
+{
+    if (!defined('PARTNER_URL') || PARTNER_URL === '') {
+        return;
+    }
+    ?>
+    <a class="admin-ad" href="<?php echo e(PARTNER_URL); ?>" target="_blank" rel="noopener noreferrer sponsored"
+       title="<?php echo e(PARTNER_NAME . ' · ' . PARTNER_SLOGAN); ?>">
+        <span class="admin-ad-body">
+            <img class="admin-ad-logo" src="../assets/img/ad/mw-logo.png" alt="<?php echo e(PARTNER_NAME); ?>">
+            <span class="admin-ad-copy">
+                <span class="admin-ad-title"><?php echo e(PARTNER_NAME); ?> · 高性能云服务器</span>
+                <span class="admin-ad-desc">多线 BGP · 多区可选 · 稳定又实惠</span>
+            </span>
+        </span>
+        <span class="admin-ad-act">立即选购<span class="admin-ad-arrow">→</span></span>
+        <span class="admin-ad-mark">广告</span>
+    </a>
+    <?php
+}
+
 function admin_header(string $title, string $active, array $admin): void
 {
     $groups = [
@@ -171,6 +196,7 @@ function admin_header(string $title, string $active, array $admin): void
     <div class="side-mask" id="sideMask"></div>
 
     <div class="admin-main">
+        <?php admin_ad_banner(); ?>
         <header class="admin-topbar">
             <?php echo ui_icon('menu', 'top_menu', 'topbar-trigger', ['id' => 'menuTrigger']); ?>
             <div class="topbar-title"><?php echo e($title); ?></div>

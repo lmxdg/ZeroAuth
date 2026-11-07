@@ -1,49 +1,61 @@
 <div align="center">
 
-<img src="favicon.ico" width="72" alt="ZeroAuth">
+<img src="favicon.ico" width="76" alt="ZeroAuth">
 
 # ZeroAuth 云鉴权
 
 **轻量 · 高安全 · 开箱即用的软件授权 & 域名授权管理系统**
 
-`V2.2.0` · 内核 `V2.1.0` · 原生 PHP · 无框架依赖
+`V2.2.1` · 内核 `V2.1.0` · 原生 PHP · 零框架依赖
 
-[![Version](https://img.shields.io/badge/version-2.2.0-blue)](https://github.com/lmxdg/ZeroAuth/releases)
+[![Version](https://img.shields.io/badge/version-2.2.1-blue)](https://github.com/lmxdg/ZeroAuth/releases)
 [![License: MIT](https://img.shields.io/badge/license-MIT-green.svg)](LICENSE)
 [![PHP](https://img.shields.io/badge/PHP-8.0%20--%208.2-777BB4?logo=php&logoColor=white)](https://www.php.net/)
 [![MySQL](https://img.shields.io/badge/MySQL-5.6%20--%205.7-4479A1?logo=mysql&logoColor=white)](https://www.mysql.com/)
+[![Releases](https://img.shields.io/github/v/release/lmxdg/ZeroAuth?label=release)](https://github.com/lmxdg/ZeroAuth/releases/latest)
 
 </div>
 
 ---
 
-ZeroAuth（云鉴权）是一套**原生 PHP 开发、轻量高效、高安全**的软件授权管理系统，为个人开发者、独立软件、桌面程序、APP 与源码产品提供：
+ZeroAuth（云鉴权）是一套**原生 PHP 编写、轻量高效、安全可靠**的软件授权管理系统。面向个人开发者、独立软件、桌面程序、APP 与源码产品，提供从**应用发布 → 卡密售卖 → 在线校验 → 代理分销**的完整闭环：
 
-- **软件卡密授权** —— 批量生成、限时 / 计次 / 永久
+- **软件卡密授权** —— 批量生成、限时 / 计次 / 永久三种模式
 - **域名白名单授权** —— 绑定域名、首页授权状态查询
-- **设备机器码授权** —— 一机一码、防多开滥用
+- **设备机器码授权** —— 一机一码，防止多开与滥用
 - **云端在线校验** —— 防破解、防本地绕过、防重放
 
-本系统无框架臃肿依赖，运行稳定、占用极低，适配所有主流虚拟主机 / 宝塔面板 / Linux 服务器。
+系统不依赖任何框架与 Composer，解压即用，资源占用极低，适配虚拟主机、宝塔面板与主流 Linux 服务器。
+
+## 核心亮点
+
+| 能力 | 说明 |
+| --- | --- |
+| 🪶 **极致轻量** | 原生 PHP + PDO，零 Composer 依赖，上传即运行 |
+| 🔐 **层层加固** | AES-256-GCM 加密存储、payload 加密、HMAC-SHA256 签名、RSA-2048 响应验签 |
+| 🧩 **插件化架构** | 支付 / 验证码 / 实名 / 主题全部插件化，`plugin/` 放入即识别 |
+| 🖥️ **三端一体** | 管理后台、代理商中心、用户中心三端响应式，配套深浅色主题 |
+| 🚀 **在线升级** | 对接 GitHub Releases，后台一键检查更新并自动覆盖升级 |
+| 🌍 **多语言 SDK** | PHP / Java / Python / Go / Node.js / C++ 六语言 SDK 一键导出 |
 
 ## 功能特性
 
 ### 🔐 安全与风控
 
-- **敏感数据加密**：实名信息、RSA 私钥等使用 AES-256-GCM 加密存储（兼容旧版 AES-128-CBC）
+- **敏感数据加密**：实名信息、RSA 私钥等使用 AES-256-GCM 加密落库（兼容旧版 AES-128-CBC）
 - **接口加密与签名**：支持 payload 加密请求体、HMAC-SHA256 v2 签名、RSA-2048 响应签名，SDK 可离线验签
-- **防重放与限流**：nonce 原子化校验防并发重放，登录 / 注册 / 授权校验 / 验证码等场景基于 IP 的分钟级限流
-- **二次验证**：管理端 TOTP（RFC 6238）动态口令，登录与安全中心可开启
-- **多模式验证码**：Cloudflare Turnstile → 极验 4.0 → 内置 GD / SVG 图形码，自动降级
-- **IP 风控**：IP 黑名单与全局封禁，CDN / 反代场景真实 IP 解析（Cloudflare、阿里云 CDN、Nginx 等，支持 IPv6）
+- **防重放与限流**：nonce 原子化校验防并发重放；登录 / 注册 / 授权校验 / 验证码等场景按 IP 分钟级限流
+- **二次验证**：管理端 TOTP（RFC 6238）动态口令，登录与安全中心均可开启
+- **多模式验证码**：Cloudflare Turnstile → 极验 4.0 → 内置 GD / SVG 图形码，逐级自动降级
+- **IP 风控**：IP 黑名单与全局封禁；CDN / 反代场景真实 IP 解析（Cloudflare、阿里云 CDN、Nginx 等，支持 IPv6）
 - **审计追溯**：登录、授权、订单、财务、插件、配置等关键操作全量审计，管理员代登录留痕
-- **盗版追踪**：盗版使用追踪与溯源
+- **盗版追踪**：盗版使用追踪与溯源分析
 
 ### 🗝️ 授权业务
 
 - **应用与版本**：多应用 / 多版本管理，版本检查与更新包下载接口，支持强制更新
-- **卡密授权**：批量生成、导出、绑定域名 / 设备、限时 / 计次 / 永久三种类型，支持续期、封禁、解绑
-- **套餐与营销**：应用套餐、折扣活动、在线购买（易支付 / 支付宝 / 微信 / 余额支付）
+- **卡密授权**：批量生成、导出、绑定域名 / 设备，限时 / 计次 / 永久三种类型，支持续期、封禁、解绑
+- **套餐与营销**：应用套餐、折扣活动、在线购买（易支付 / 支付宝 / 微信 / 余额）
 - **订单与财务**：订单查询、支付回调、财务流水、提现审核
 - **代理商体系**：多级代理商、等级规则、邀请码、分成结算、**邀请返利**（按订单实付比例自动返余额，幂等防重）
 - **云变量**：按应用下发公开 / 私有变量，私有变量签名拉取，客户端可远程更新配置
@@ -79,7 +91,7 @@ ZeroAuth（云鉴权）是一套**原生 PHP 开发、轻量高效、高安全**
 
 ### 🧰 运营与运维
 
-公告管理、工单系统（附件上传 ≤10MB、自定义分类）、邮件模板与场景通知、告警中心、数据报表、世界地图、IP 归属地（缓存 + 可关闭）、数据备份、健康检查、**检测更新与一键在线更新**（对接 GitHub Releases，发现新版本后进入 `update.php` 自动下载安装包、替换文件并自动清理，全程保护站点配置与自定义后台目录）、远程公告分发、**一键 / 定时跑路**（需二次确认，仅限弃用场景）
+公告管理、工单系统（附件上传 ≤10MB、自定义分类）、邮件模板与场景通知、告警中心、数据报表、世界地图、IP 归属地（缓存 + 可关闭）、数据备份、健康检查、**检测更新与一键在线更新**（对接 GitHub Releases，发现新版本后进入 `update.php` 自动下载安装包、替换文件并清理临时文件，全程保护站点配置与自定义后台目录）、远程公告分发、**一键 / 定时跑路**（需二次确认，仅限弃用场景）
 
 ### 🖥️ 体验
 
@@ -104,6 +116,13 @@ ZeroAuth（云鉴权）是一套**原生 PHP 开发、轻量高效、高安全**
 5. **开始使用**：登录后台 → 创建应用 → 发布版本 → 生成卡密 → 插件商店安装支付插件、系统设置配置验证码 / 实名 / 短信 → 导出 SDK 接入你的软件；
 6. **升级**：后台「控制台 → 版本更新」发现新版本后点击「立即更新」一键在线升级；或覆盖升级，保留 `config.php`、`install.lock`、`runtime/`、`uploads/`，结构变更由 `core/schema_upgrade.php` 启动时自动迁移。
 
+```bash
+# 方式一：Git 克隆部署
+git clone https://github.com/lmxdg/ZeroAuth.git
+# 方式二：下载 Release 安装包（推荐）
+# https://github.com/lmxdg/ZeroAuth/releases/latest
+```
+
 ## 目录结构
 
 ```
@@ -112,11 +131,12 @@ ZeroAuth/
 ├── agent/              # 代理商中心
 ├── user/               # 用户中心
 ├── api/                # 开放接口（授权校验 / 云变量 / 版本 / 公告等）
-├── core/               # 内核：引导、安全、支付、邮件、插件系统、SDK 模板等
+├── core/               # 内核：引导、安全、支付、邮件、插件系统、SDK 模板
 ├── plugin/             # 插件目录（支付 / 验证码 / 实名 / 首页主题模板）
 ├── install/            # 安装向导
 ├── docs/               # 内置开发文档（插件 / 主题）
-├── assets/             # 静态资源（CSS / JS / SVG / 库）
+├── assets/             # 静态资源（CSS / JS / SVG / 图片 / 库）
+│   └── img/ad/         # 合作伙伴广告图（后台顶部横幅 / 品牌标识）
 ├── runtime/            # 运行时数据（缓存、备份、限流、防重放）
 ├── uploads/            # 上传目录（站点图标 / 工单附件）
 ├── index.php           # 首页入口
@@ -125,6 +145,23 @@ ZeroAuth/
 ├── 更新说明.md          # 版本更新记录
 └── 部署要求.md          # 部署环境说明
 ```
+
+## 更新日志
+
+### V2.2.1（2026-11-07）· 内核 V2.1.0
+
+1. **修复了已知 bug**
+2. **优化性能，提升体验**
+
+> 本次为维护版本，**内核版本保持 2.1.0 不变**，可直接覆盖升级，无需重新配置。
+> 另：后台顶部新增合作伙伴广告位，「关于系统」页新增「合作伙伴」展示区，广告图片已随安装包内置，无外链依赖。
+
+<details>
+<summary>查看历史版本 V2.2.0 / V2.1.5 / V2.1.0 …</summary>
+
+完整更新记录请见 [更新说明.md](更新说明.md)，或前往 [Releases](https://github.com/lmxdg/ZeroAuth/releases) 查看每个版本的详细说明。
+
+</details>
 
 ## 二次开发
 
@@ -142,9 +179,23 @@ ZeroAuth/
 - 按需在「系统设置」中开启或关闭 `trust_proxy_ip`（使用 CDN / 反代时建议开启）；
 - 定期使用后台「数据备份」功能备份站点与数据库。
 
+## 合作伙伴
+
+<div align="center">
+
+<a href="https://www.cnmrnmb.online/aff/UFFQUCLQ" target="_blank" rel="noopener">
+  <img src="assets/img/ad/mw.png" alt="冥雾云 · 高性能云服务器" width="760">
+</a>
+
+**冥雾云** · 多种机型 · 多区可选 · 助力您的上云之旅
+
+高性能服务器，稳定又实惠 —— [www.cnmrnmb.online](https://www.cnmrnmb.online/aff/UFFQUCLQ)
+
+</div>
+
 ## 开源协议
 
-本项目基于 [MIT License](LICENSE) 开源发布，可自由使用、复制、修改、合并与分发，只需在软件副本中保留原版权声明与许可声明。
+本项目基于 [MIT License](LICENSE) 开源发布，可自由使用、复制、修改、合并与分发，只需在软件副本中保留原版权声明与许可声明。**二次开发请保留原作者与二开作者的版权信息及后台「关于系统」入口。**
 
 ## 致谢
 
