@@ -4,6 +4,35 @@ declare(strict_types=1);
 require_once __DIR__ . '/Ui.php';
 
 /**
+ * 后台顶部广告位样式（内联输出）
+ * 不依赖 admin.css：即使浏览器缓存了旧样式表、或后台目录被改名后静态资源未同步，
+ * 广告位依然保持完整样式。
+ */
+function admin_ad_css(): void
+{
+    ?>
+<style>
+.admin-ad{position:relative;isolation:isolate;display:flex;align-items:center;justify-content:flex-start;gap:18px;height:92px;margin:12px 18px 0;padding:0 22px;border-radius:12px;overflow:hidden;background:linear-gradient(100deg,#0A2A5E 0%,#1257A8 52%,#2A8BE8 100%);box-shadow:0 6px 18px rgba(13,42,88,.18);color:#FFFFFF;text-decoration:none;transition:transform .18s ease,box-shadow .18s ease}
+.admin-ad:hover{transform:translateY(-1px);box-shadow:0 12px 28px rgba(13,42,88,.28);color:#FFFFFF;text-decoration:none}
+.admin-ad::before{content:"";position:absolute;top:0;right:0;bottom:0;width:38%;z-index:-1;background:url(../../assets/img/ad/mw.png) 62% 44%/cover no-repeat;-webkit-mask-image:linear-gradient(90deg,rgba(0,0,0,0) 0%,rgba(0,0,0,.45) 40%,#000 78%);mask-image:linear-gradient(90deg,rgba(0,0,0,0) 0%,rgba(0,0,0,.45) 40%,#000 78%);opacity:.9}
+.admin-ad::after{content:"";position:absolute;inset:0;z-index:-1;background:radial-gradient(120% 180% at 6% 8%,rgba(126,205,255,.34),rgba(126,205,255,0) 58%);pointer-events:none}
+.admin-ad-body{position:relative;z-index:1;display:flex;align-items:center;gap:14px;min-width:0}
+.admin-ad-logo{display:block;height:46px;width:auto;filter:drop-shadow(0 2px 6px rgba(0,0,0,.28))}
+.admin-ad-copy{display:flex;flex-direction:column;gap:3px;min-width:0}
+.admin-ad-title{font-size:15px;font-weight:700;line-height:21px;letter-spacing:.2px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.admin-ad-desc{font-size:12px;line-height:17px;color:rgba(255,255,255,.78);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.admin-ad-act{position:relative;z-index:1;flex:none;display:inline-flex;align-items:center;gap:6px;height:34px;padding:0 18px;margin-left:6px;border-radius:999px;background:#FFFFFF;border:1px solid #FFFFFF;color:#0A47A0;font-size:13px;font-weight:700;box-shadow:0 4px 12px rgba(0,20,60,.18);transition:background .18s,color .18s,border-color .18s}
+.admin-ad:hover .admin-ad-act{background:#EAF3FF;border-color:#EAF3FF;color:#08407F}
+.admin-ad-arrow{transition:transform .18s ease}
+.admin-ad:hover .admin-ad-arrow{transform:translateX(3px)}
+.admin-ad-mark{position:absolute;right:11px;bottom:7px;z-index:1;font-size:10px;line-height:1;letter-spacing:1px;color:rgba(255,255,255,.55)}
+@media(max-width:900px){.admin-ad{height:84px;margin:10px 14px 0;padding:0 16px;gap:12px}.admin-ad-logo{height:40px}.admin-ad::before{width:52%}}
+@media(max-width:768px){.admin-ad{height:76px;margin:10px 12px 0;padding:0 14px;gap:10px;border-radius:10px}.admin-ad::before{display:none}.admin-ad-logo{height:34px}.admin-ad-title{font-size:13.5px;line-height:19px}.admin-ad-desc{font-size:11px;line-height:15px}.admin-ad-act{height:30px;padding:0 12px;font-size:12px}.admin-ad-mark{display:none}}
+</style>
+    <?php
+}
+
+/**
  * 后台顶部广告位（合作伙伴推广）
  * 图片随包内置：assets/img/ad/mw.png（横幅底图）/ mw-logo.png（品牌标识）
  */
@@ -150,8 +179,9 @@ function admin_header(string $title, string $active, array $admin): void
     }
 } catch (e) { } })();
 </script>
-<link rel="stylesheet" href="../assets/css/ui-shared.css">
-<link rel="stylesheet" href="assets/admin.css">
+<link rel="stylesheet" href="../assets/css/ui-shared.css?v=<?php echo e(PRODUCT_VERSION); ?>">
+<link rel="stylesheet" href="assets/admin.css?v=<?php echo e(PRODUCT_VERSION); ?>">
+<?php admin_ad_css(); ?>
 </head>
 <body class="admin-body" data-wm-text="<?php echo e($cfgSiteName . ' · ' . $admin['username']); ?>">
 <div class="topbar-progress" id="topbarProgress"></div>

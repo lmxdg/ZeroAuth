@@ -6,6 +6,7 @@ require dirname(__DIR__) . '/core/bootstrap.php';
 require dirname(__DIR__) . '/core/Pay.php';
 require dirname(__DIR__) . '/core/Mail.php';
 require dirname(__DIR__) . '/core/layout_admin.php';
+require dirname(__DIR__) . '/core/UpdateClient.php';
 
 $admin = admin_require_login();
 
@@ -322,7 +323,7 @@ $updateNew = $updateOk && version_compare((string)($updateInfo['version'] ?? '')
         </div>
         <div class="spacer"></div>
         <?php if ($updateNew): ?>
-        <a class="btn-mini" href="update.php" style="text-decoration:none;line-height:30px;margin-right:8px">立即更新</a>
+        <button class="btn-mini" type="button" data-updater style="margin-right:8px">立即更新</button>
         <?php endif; ?>
         <?php if ($updateNew && ($updateInfo['url'] ?? '') !== ''): ?>
         <a class="btn-mini-plain" href="<?php echo e((string)$updateInfo['url']); ?>" target="_blank" rel="noopener noreferrer" style="text-decoration:none;line-height:30px;margin-right:8px">前往下载</a>
@@ -504,4 +505,5 @@ $updateNew = $updateOk && version_compare((string)($updateInfo['version'] ?? '')
         </div>
     </section>
 </div>
+<?php if ($updateNew) { update_client_assets(); } ?>
 <?php admin_footer(['../assets/lib/echarts.min.js', 'assets/world-map.js']); ?>

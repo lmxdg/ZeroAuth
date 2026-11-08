@@ -6,9 +6,9 @@
 
 **轻量 · 高安全 · 开箱即用的软件授权 & 域名授权管理系统**
 
-`V2.2.1` · 内核 `V2.1.0` · 原生 PHP · 零框架依赖
+`V2.2.2` · 内核 `V2.1.1` · 原生 PHP · 零框架依赖
 
-[![Version](https://img.shields.io/badge/version-2.2.1-blue)](https://github.com/lmxdg/ZeroAuth/releases)
+[![Version](https://img.shields.io/badge/version-2.2.2-blue)](https://github.com/lmxdg/ZeroAuth/releases)
 [![License: MIT](https://img.shields.io/badge/license-MIT-green.svg)](LICENSE)
 [![PHP](https://img.shields.io/badge/PHP-8.0%20--%208.2-777BB4?logo=php&logoColor=white)](https://www.php.net/)
 [![MySQL](https://img.shields.io/badge/MySQL-5.6%20--%205.7-4479A1?logo=mysql&logoColor=white)](https://www.mysql.com/)
@@ -114,7 +114,7 @@ ZeroAuth（云鉴权）是一套**原生 PHP 编写、轻量高效、安全可�
    - 管理员账号、密码、后台目录名均可留空，系统自动生成安全值并在完成页展示；
 4. **完成安装**：系统自动建表（29 张）、写入内置六语言 SDK 模板，生成 `config.php` 与 `install.lock`；
 5. **开始使用**：登录后台 → 创建应用 → 发布版本 → 生成卡密 → 插件商店安装支付插件、系统设置配置验证码 / 实名 / 短信 → 导出 SDK 接入你的软件；
-6. **升级**：后台「控制台 → 版本更新」发现新版本后点击「立即更新」一键在线升级；或覆盖升级，保留 `config.php`、`install.lock`、`runtime/`、`uploads/`，结构变更由 `core/schema_upgrade.php` 启动时自动迁移。
+6. **升级**：后台「控制台 → 版本更新」发现新版本后点击「立即更新」，安装包在后台直接下载并显示进度条，下载完成后自动替换文件；或覆盖升级，保留 `config.php`、`install.lock`、`runtime/`、`uploads/`，结构变更由 `core/schema_upgrade.php` 启动时自动迁移。
 
 ```bash
 # 方式一：Git 克隆部署
@@ -136,7 +136,6 @@ ZeroAuth/
 ├── install/            # 安装向导
 ├── docs/               # 内置开发文档（插件 / 主题）
 ├── assets/             # 静态资源（CSS / JS / SVG / 图片 / 库）
-│   └── img/ad/         # 合作伙伴广告图（后台顶部横幅 / 品牌标识）
 ├── runtime/            # 运行时数据（缓存、备份、限流、防重放）
 ├── uploads/            # 上传目录（站点图标 / 工单附件）
 ├── index.php           # 首页入口
@@ -148,15 +147,22 @@ ZeroAuth/
 
 ## 更新日志
 
-### V2.2.1（2026-11-07）· 内核 V2.1.0
+### V2.2.2（2026-11-07）· 内核 V2.1.1
 
-1. **修复了已知 bug**
-2. **优化性能，提升体验**
+1. **后台一键更新全面升级**
+   - 安装包改为**后台内分块下载**，无需跳转页面、不再整页刷新；
+   - 弹层实时显示**下载进度条**（百分比 / 已下载体积 / 总体积），下载过程中可随时查看日志；
+   - 下载完成后**自动解压并覆盖替换**系统文件，自动保护 `config.php`、`install.lock`、`runtime/`、`uploads/` 与自定义后台目录，完成后自动清理安装包与临时文件；
+   - 下载源支持断点续传（Range），断流后可自动续传；不支持断点时会自动回退为整包下载。
+2. **修复已知问题**
+   - 修复后台若干已知问题，提升稳定性。
+3. **优化性能，提升体验**
+   - 优化后台页面渲染与资源加载，操作响应更流畅。
 
-> 本次为维护版本，**内核版本保持 2.1.0 不变**，可直接覆盖升级，无需重新配置。
+> 内核版本升级至 **2.1.1**，数据库结构无变更，可直接覆盖升级或后台一键更新。
 
 <details>
-<summary>查看历史版本 V2.2.0 / V2.1.5 / V2.1.0 …</summary>
+<summary>查看历史版本 V2.2.1 / V2.2.0 / V2.1.5 …</summary>
 
 完整更新记录请见 [更新说明.md](更新说明.md)，或前往 [Releases](https://github.com/lmxdg/ZeroAuth/releases) 查看每个版本的详细说明。
 
@@ -177,20 +183,6 @@ ZeroAuth/
 - 在「安全中心」开启 **TOTP 二次验证**；
 - 按需在「系统设置」中开启或关闭 `trust_proxy_ip`（使用 CDN / 反代时建议开启）；
 - 定期使用后台「数据备份」功能备份站点与数据库。
-
-## 合作伙伴
-
-<div align="center">
-
-<a href="https://www.cnmrnmb.online/aff/UFFQUCLQ" target="_blank" rel="noopener">
-  <img src="assets/img/ad/mw.png" alt="冥雾云 · 高性能云服务器" width="760">
-</a>
-
-**冥雾云** · 多种机型 · 多区可选 · 助力您的上云之旅
-
-高性能服务器，稳定又实惠 —— [www.cnmrnmb.online](https://www.cnmrnmb.online/aff/UFFQUCLQ)
-
-</div>
 
 ## 开源协议
 
