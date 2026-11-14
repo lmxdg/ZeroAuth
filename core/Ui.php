@@ -50,6 +50,8 @@ function ui_color(string $key): string
         'redeem' => '#8B5CF6',
         'buy' => '#10B981',
         'tickets' => '#F43F5E',
+        'bugs' => '#10B981',
+        'bug' => '#10B981',
         'agent_open' => '#F97316',
         'license_manage' => '#F59E0B',
         'users' => '#6366F1',

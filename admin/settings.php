@@ -153,6 +153,28 @@ if (is_post()) {
         }
     }
 
+    // AI 客服设置：用户中心悬浮窗 + 标准 OpenAI 兼容接口（V2.2.3）
+    if ($action === 'ai_save') {
+        set_cfg('ai_cs_enabled', (($_POST['ai_cs_enabled'] ?? '0') === '1') ? '1' : '0', 'AI 客服开关 1开启(用户中心悬浮窗) 0关闭');
+        $aiUrl = trim((string)($_POST['ai_cs_api_url'] ?? ''));
+        if ($aiUrl !== '' && filter_var($aiUrl, FILTER_VALIDATE_URL) === false) {
+            $error = 'AI 接口地址格式不正确，请填写完整的 http(s) 地址。';
+        } else {
+            set_cfg('ai_cs_api_url', $aiUrl, 'AI 客服接口地址(标准 OpenAI 兼容,可填 Base URL 或完整 chat/completions 地址)');
+            set_cfg('ai_cs_model', mb_substr(trim((string)($_POST['ai_cs_model'] ?? '')), 0, 64), 'AI 客服模型名称(如 gpt-4o-mini / deepseek-chat)');
+            set_cfg('ai_cs_title', mb_substr(trim((string)($_POST['ai_cs_title'] ?? '')), 0, 20), 'AI 客服悬浮窗标题(默认 AI 客服)');
+            set_cfg('ai_cs_welcome', mb_substr(trim((string)($_POST['ai_cs_welcome'] ?? '')), 0, 100), 'AI 客服欢迎语(默认内置欢迎语)');
+            set_cfg('ai_cs_prompt', mb_substr(trim((string)($_POST['ai_cs_prompt'] ?? '')), 0, 2000), 'AI 客服系统提示词(留空使用内置默认,支持 {username} 占位)');
+            $aiKey = trim((string)($_POST['ai_cs_api_key'] ?? ''));
+            if ($aiKey !== '') {
+                set_cfg('ai_cs_api_key', $aiKey, 'AI 客服接口密钥(API Key,保存后不回显)');
+            }
+            audit('config', 'ai_update', 1, (int)$admin['id'], 'AI 客服设置已更新（开关：' . (($_POST['ai_cs_enabled'] ?? '0') === '1' ? '启用' : '停用') . '）');
+            flash_set('ok', 'AI 客服设置已保存，保存即生效。');
+            redirect('settings.php#ai');
+        }
+    }
+
     if ($action === 'notice_publish') {
         $publish = (($_POST['remote_notice_publish'] ?? '1') === '1') ? '1' : '0';
         $content = trim((string)($_POST['remote_notice_content'] ?? '[]'));
@@ -421,6 +443,7 @@ if ($error !== ''): ?>
     <a class="settings-tab" data-tab="realname" href="#realname">实名设置</a>
     <a class="settings-tab" data-tab="sms" href="#sms">短信设置</a>
     <a class="settings-tab" data-tab="rebate" href="#rebate">邀请返利</a>
+    <a class="settings-tab" data-tab="ai" href="#ai">AI 客服</a>
     <a class="settings-tab" data-tab="site" href="#site">站点信息</a>
     <a class="settings-tab" data-tab="mail" href="#mail">邮件通知</a>
     <a class="settings-tab" data-tab="rules" href="#rules">通知规则</a>
@@ -747,6 +770,59 @@ if ($error !== ''): ?>
             <p class="form-hint">按订单实付金额计算（如填写 10，用户实付 100 元则返利 10 元），保留 2 位小数，不足 0.01 元不发放</p>
         </div>
         <button class="btn-primary" type="submit">保存邀请返利配置</button>
+    </form>
+</section>
+
+<section class="card settings-panel" id="panel-ai">
+    <h2 class="card-title">AI 客服</h2>
+    <p class="card-desc">在用户中心右下角启用 <b>AI 客服悬浮窗</b>：用户登录后可随时与 AI 对话咨询授权、购买、部署等常见问题。系统走<b>标准 OpenAI 接口</b>（兼容 <code>/v1/chat/completions</code> 格式，OpenAI / DeepSeek / 通义千问 / 月之暗面等主流服务商及中转站均可），接口密钥仅保存在服务端，不会暴露给前端。API 信息统一在此配置。</p>
+
+    <form method="post" class="form">
+        <?php echo csrf_field(); ?>
+        <input type="hidden" name="action" value="ai_save">
+        <div class="form-item">
+            <label class="form-label">AI 客服开关</label>
+            <select class="form-input" name="ai_cs_enabled" style="max-width:420px">
+                <option value="1" <?php echo cfg('ai_cs_enabled', '0') === '1' ? 'selected' : ''; ?>>开启（用户中心右下角显示悬浮窗）</option>
+                <option value="0" <?php echo cfg('ai_cs_enabled', '0') !== '1' ? 'selected' : ''; ?>>关闭（隐藏悬浮窗）</option>
+            </select>
+            <p class="form-hint">开启前请先完成下方接口地址、密钥与模型配置，三项配置齐全后悬浮窗才可用</p>
+        </div>
+        <div class="form-item">
+            <label class="form-label">接口地址</label>
+            <input class="form-input" type="text" name="ai_cs_api_url" style="max-width:420px"
+                   value="<?php echo e(cfg('ai_cs_api_url', '')); ?>"
+                   placeholder="https://api.openai.com/v1 或 https://api.openai.com/v1/chat/completions">
+            <p class="form-hint">标准 OpenAI 兼容地址：可填 Base URL（系统自动追加 /chat/completions），也可填完整接口地址</p>
+        </div>
+        <div class="form-item">
+            <label class="form-label">API Key</label>
+            <input class="form-input" type="password" name="ai_cs_api_key" style="max-width:420px" value=""
+                   placeholder="<?php echo cfg('ai_cs_api_key', '') !== '' ? '已配置，留空保持不变' : 'sk-...'; ?>" autocomplete="new-password">
+            <p class="form-hint">服务商控制台生成的 API Key，仅用于服务端调用，保存后不再回显</p>
+        </div>
+        <div class="form-item">
+            <label class="form-label">模型名称</label>
+            <input class="form-input" type="text" name="ai_cs_model" style="max-width:420px"
+                   value="<?php echo e(cfg('ai_cs_model', '')); ?>" placeholder="如 gpt-4o-mini / deepseek-chat / qwen-turbo">
+        </div>
+        <div class="form-item">
+            <label class="form-label">悬浮窗标题</label>
+            <input class="form-input" type="text" name="ai_cs_title" maxlength="20" style="max-width:420px"
+                   value="<?php echo e(cfg('ai_cs_title', 'AI 客服') === '' ? 'AI 客服' : cfg('ai_cs_title', '')); ?>" placeholder="默认：AI 客服">
+        </div>
+        <div class="form-item">
+            <label class="form-label">欢迎语</label>
+            <textarea class="form-input" name="ai_cs_welcome" rows="2" style="max-width:560px"
+                      placeholder="默认：您好，我是 AI 客服，有什么可以帮您？"><?php echo e(cfg('ai_cs_welcome', '')); ?></textarea>
+        </div>
+        <div class="form-item">
+            <label class="form-label">系统提示词（设定 AI 角色与回答范围，选填）</label>
+            <textarea class="form-input" name="ai_cs_prompt" rows="5" style="max-width:640px;font-family:inherit"
+                      placeholder="留空使用内置默认提示词（面向授权 / 卡密 / 购买 / 部署场景的客服助手）。支持 {username} 占位符，发送时自动替换为当前用户名。"><?php echo e(cfg('ai_cs_prompt', '')); ?></textarea>
+            <p class="form-hint">建议引导 AI 在无法解决的问题上建议用户提交工单；单条对话上下文自动保留最近 20 条消息，单用户每分钟限 20 次</p>
+        </div>
+        <button class="btn-primary" type="submit">保存 AI 客服设置</button>
     </form>
 </section>
 

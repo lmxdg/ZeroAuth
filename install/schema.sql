@@ -500,3 +500,36 @@ CREATE TABLE IF NOT EXISTS `notice` (
   KEY `sort` (`sort`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='系统公告';
 
+-- 29. Bug 广场-问题分享表（V2.2.3 新增：用户分享 Bug、互相交流、标记解决）
+CREATE TABLE IF NOT EXISTS `bug_post` (
+  `id` int unsigned NOT NULL AUTO_INCREMENT COMMENT '自增ID',
+  `user_id` int unsigned NOT NULL DEFAULT 0 COMMENT '分享用户ID（0=管理员代发）',
+  `app_id` int unsigned NOT NULL DEFAULT 0 COMMENT '关联应用 0=不限应用',
+  `title` varchar(190) NOT NULL DEFAULT '' COMMENT '问题标题',
+  `content` text COMMENT '问题描述（复现步骤 / 现象 / 环境）',
+  `contact` varchar(120) NOT NULL DEFAULT '' COMMENT '联系方式（选填）',
+  `status` tinyint unsigned NOT NULL DEFAULT 1 COMMENT '1已发布 2已下架',
+  `resolved` tinyint unsigned NOT NULL DEFAULT 0 COMMENT '0未解决 1已解决',
+  `views` int unsigned NOT NULL DEFAULT 0 COMMENT '浏览数',
+  `likes` int unsigned NOT NULL DEFAULT 0 COMMENT '点赞数',
+  `reply_count` int unsigned NOT NULL DEFAULT 0 COMMENT '回复数',
+  `created_at` int unsigned NOT NULL DEFAULT 0 COMMENT '创建时间',
+  `updated_at` int unsigned NOT NULL DEFAULT 0 COMMENT '更新时间',
+  PRIMARY KEY (`id`),
+  KEY `status` (`status`,`created_at`),
+  KEY `user` (`user_id`,`created_at`),
+  KEY `app` (`app_id`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='Bug 广场-问题分享';
+
+-- 30. Bug 广场-回复表（V2.2.3 新增）
+CREATE TABLE IF NOT EXISTS `bug_reply` (
+  `id` int unsigned NOT NULL AUTO_INCREMENT COMMENT '自增ID',
+  `post_id` int unsigned NOT NULL DEFAULT 0 COMMENT '问题ID',
+  `user_type` tinyint unsigned NOT NULL DEFAULT 1 COMMENT '1用户 2管理员',
+  `user_id` int unsigned NOT NULL DEFAULT 0 COMMENT '回复人ID',
+  `username` varchar(64) NOT NULL DEFAULT '' COMMENT '回复人昵称快照',
+  `content` text COMMENT '回复内容',
+  `created_at` int unsigned NOT NULL DEFAULT 0 COMMENT '创建时间',
+  PRIMARY KEY (`id`),
+  KEY `post` (`post_id`,`created_at`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='Bug 广场-回复';

@@ -155,6 +155,50 @@ function schema_upgrade_ticket_attachment(): void
     }
 }
 
+// Bug 广场（V2.2.3 新增，独立锁保证旧站点升级时执行）
+function schema_upgrade_bug(): void
+{
+    $lock = RUNTIME_PATH . '/.schema_v223.lock';
+    if (is_file($lock)) {
+        return;
+    }
+    try {
+        db()->exec("CREATE TABLE IF NOT EXISTS `bug_post` (
+            `id` int unsigned NOT NULL AUTO_INCREMENT,
+            `user_id` int unsigned NOT NULL DEFAULT 0 COMMENT '分享用户ID（0=管理员代发）',
+            `app_id` int unsigned NOT NULL DEFAULT 0 COMMENT '关联应用 0=不限应用',
+            `title` varchar(190) NOT NULL DEFAULT '' COMMENT '问题标题',
+            `content` text COMMENT '问题描述（复现步骤 / 现象 / 环境）',
+            `contact` varchar(120) NOT NULL DEFAULT '' COMMENT '联系方式（选填）',
+            `status` tinyint unsigned NOT NULL DEFAULT 1 COMMENT '1已发布 2已下架',
+            `resolved` tinyint unsigned NOT NULL DEFAULT 0 COMMENT '0未解决 1已解决',
+            `views` int unsigned NOT NULL DEFAULT 0 COMMENT '浏览数',
+            `likes` int unsigned NOT NULL DEFAULT 0 COMMENT '点赞数',
+            `reply_count` int unsigned NOT NULL DEFAULT 0 COMMENT '回复数',
+            `created_at` int unsigned NOT NULL DEFAULT 0,
+            `updated_at` int unsigned NOT NULL DEFAULT 0,
+            PRIMARY KEY (`id`),
+            KEY `status` (`status`,`created_at`),
+            KEY `user` (`user_id`,`created_at`),
+            KEY `app` (`app_id`)
+        ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='Bug 广场-问题分享'");
+        db()->exec("CREATE TABLE IF NOT EXISTS `bug_reply` (
+            `id` int unsigned NOT NULL AUTO_INCREMENT,
+            `post_id` int unsigned NOT NULL DEFAULT 0 COMMENT '问题ID',
+            `user_type` tinyint unsigned NOT NULL DEFAULT 1 COMMENT '1用户 2管理员',
+            `user_id` int unsigned NOT NULL DEFAULT 0,
+            `username` varchar(64) NOT NULL DEFAULT '' COMMENT '回复人昵称快照',
+            `content` text COMMENT '回复内容',
+            `created_at` int unsigned NOT NULL DEFAULT 0,
+            PRIMARY KEY (`id`),
+            KEY `post` (`post_id`,`created_at`)
+        ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='Bug 广场-回复'");
+        @file_put_contents($lock, (string)time());
+    } catch (Throwable $ex) {
+        @file_put_contents(RUNTIME_PATH . '/schema_upgrade.log', date('Y-m-d H:i:s') . ' bug迁移: ' . $ex->getMessage() . PHP_EOL, FILE_APPEND);
+    }
+}
+
 function schema_upgrade_boot(): void
 {
     static $done = false;
@@ -168,6 +212,7 @@ function schema_upgrade_boot(): void
     schema_upgrade_agent_ip();
     schema_upgrade_notice();
     schema_upgrade_ticket_attachment();
+    schema_upgrade_bug();
 
     $lock = RUNTIME_PATH . '/.schema_v20.lock';
 

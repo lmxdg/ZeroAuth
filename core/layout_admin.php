@@ -81,6 +81,7 @@ function admin_header(string $title, string $active, array $admin): void
             'realname'  => ['实名认证审核', 'realname.php', 'menu-user'],
             'withdraw'  => ['提现管理', 'withdraw.php', 'menu-money'],
             'ticket'    => ['工单管理', 'ticket_manage.php', 'menu-log'],
+            'bug'       => ['Bug 广场管理', 'bug_manage.php', 'menu-log'],
             'notice'    => ['公告管理', 'notice_manage.php', 'menu-log'],
         ]],
         ['label' => '开发者', 'icon' => 'group-dev', 'items' => [

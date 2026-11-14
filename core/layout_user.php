@@ -2,6 +2,7 @@
 // 用户中心公共布局
 declare(strict_types=1);
 require_once __DIR__ . '/Ui.php';
+require_once __DIR__ . '/AiChat.php';
 
 function user_header(string $title, string $active, array $user): void
 {
@@ -12,6 +13,7 @@ function user_header(string $title, string $active, array $user): void
         'buy'        => ['购买授权', 'buy.php', 'menu-money'],
         'finance'    => ['我的财务', 'finance.php', 'menu-log'],
         'tickets'    => ['我的工单', 'tickets.php', 'menu-activity'],
+        'bugs'       => ['Bug 广场', 'bugs.php', 'menu-var'],
         'profile'    => ['个人设置', 'profile.php', 'menu-user'],
         'agent_open' => ['开通代理商', 'agent_open.php', 'menu-agent'],
     ];
@@ -21,6 +23,7 @@ function user_header(string $title, string $active, array $user): void
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="csrf-token" content="<?php echo e(csrf_token()); ?>">
 <title><?php echo e($title); ?> - 用户中心</title>
 <?php echo site_meta_tags('../'); ?>
 <?php echo avatar_fallback_script(); ?>
@@ -95,6 +98,8 @@ function user_header(string $title, string $active, array $user): void
 
 function user_footer(): void
 {
+    // AI 客服悬浮窗（后台开启且配置完整时渲染）
+    ai_cs_widget();
     ?>
         </main>
     </div>
