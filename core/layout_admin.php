@@ -57,6 +57,54 @@ function admin_ad_banner(): void
     <?php
 }
 
+/**
+ * 后台目录文件同步自检
+ * 自定义后台目录（config.php 的 admin_dir）在旧版在线更新时可能漏同步后台文件，
+ * 通过后台目录内的 .build 版本标记检测，避免新增后台页面静默 404。
+ *
+ * @return array{stale:bool,dir:string,build:string}
+ */
+function admin_dir_sync_state(): array
+{
+    $dir = 'admin';
+    try {
+        $cfg = config();
+        if (is_array($cfg) && isset($cfg['admin_dir']) && is_string($cfg['admin_dir']) && preg_match('/^[a-zA-Z][a-zA-Z0-9_]{2,29}$/', $cfg['admin_dir'])) {
+            $dir = $cfg['admin_dir'];
+        }
+    } catch (Throwable $ex) {
+    }
+    // 默认后台目录由在线更新正常覆盖，无需提示，避免误报
+    if ($dir === 'admin') {
+        return ['stale' => false, 'dir' => $dir, 'build' => ''];
+    }
+    $build = '';
+    $file = ROOT_PATH . '/' . $dir . '/.build';
+    if (is_file($file)) {
+        $build = (string)preg_replace('/[^0-9A-Za-z.\-]/', '', (string)@file_get_contents($file));
+    }
+    return ['stale' => $build !== (string)PRODUCT_VERSION, 'dir' => $dir, 'build' => $build];
+}
+
+/**
+ * 后台文件未同步提示条（自定义后台目录 + 版本标记不一致时显示）
+ */
+function admin_dir_sync_notice(): void
+{
+    $st = admin_dir_sync_state();
+    if (empty($st['stale'])) {
+        return;
+    }
+    $dir = (string)$st['dir'];
+    $build = (string)$st['build'];
+    ?>
+    <div style="display:flex;align-items:flex-start;gap:10px;margin-bottom:16px;padding:12px 14px;border:1px solid rgba(255,125,0,.32);border-radius:8px;background:var(--warning-bg);font-size:13px;line-height:21px;color:var(--text-main)">
+        <b style="flex:none;color:var(--warning)">后台文件未同步</b>
+        <span>后台目录 <code><?php echo e($dir); ?>/</code> 的程序文件版本（<?php echo $build !== '' ? 'V' . e($build) : '未知'; ?>）与系统版本 V<?php echo e(PRODUCT_VERSION); ?> 不一致，新增的后台功能（如 Bug 广场管理）会 404。请把安装包内 <code>admin/</code> 目录的全部文件覆盖到 <code><?php echo e($dir); ?>/</code>；在线更新到 V2.2.4 及以后版本会自动同步，覆盖后刷新本页即可。</span>
+    </div>
+    <?php
+}
+
 function admin_header(string $title, string $active, array $admin): void
 {
     $groups = [
@@ -329,6 +377,7 @@ function admin_header(string $title, string $active, array $admin): void
         })();
         </script>
         <main class="admin-content">
+        <?php admin_dir_sync_notice(); ?>
     <?php
 }
 

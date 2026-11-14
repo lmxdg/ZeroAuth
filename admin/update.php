@@ -2,7 +2,7 @@
 // 管理员后台 - 一键在线更新
 // 流程：检测新版本 → 自动下载最新安装包（GitHub Release zip 资产，缺失时回退仓库源码包）
 //      → 校验并解压 → 自动覆盖替换系统文件（保护 config.php / install.lock / runtime / uploads，
-//         自定义后台目录自动适配）→ 更新完成后自动删除下载的安装包与临时文件
+//         包内 admin/ 全量同步到站点实际后台目录，含新增页面，避免后台功能 404）→ 更新完成后自动删除下载的安装包与临时文件
 declare(strict_types=1);
 
 require dirname(__DIR__) . '/core/bootstrap.php';
@@ -28,6 +28,10 @@ function update_admin_dir(): string
             $dir = $cfg['admin_dir'];
         }
     } catch (Throwable $ex) {
+    }
+    // 保留目录不可作为后台目录，避免后台文件被写进业务目录
+    if (in_array(strtolower($dir), ['runtime', 'uploads', 'core', 'assets', 'install', 'api', 'user'], true)) {
+        $dir = 'admin';
     }
     return $dir;
 }
@@ -110,7 +114,9 @@ function update_download(string $url, string $dest, int $timeout = 600): array
 }
 
 // 递归覆盖复制（含保护规则），返回 [复制文件数, 跳过数]
-function update_copy_tree(string $srcDir, string $destBase, string $adminDir, array &$log, string $rel = ''): array
+// $rel     安装包内相对路径（仅用于保护规则判断）
+// $destRel 目标相对路径（包内 admin/ 会映射到站点实际后台目录）
+function update_copy_tree(string $srcDir, string $destBase, string $adminDir, array &$log, string $rel = '', string $destRel = ''): array
 {
     $copied = 0;
     $skipped = 0;
@@ -139,35 +145,38 @@ function update_copy_tree(string $srcDir, string $destBase, string $adminDir, ar
             }
         }
 
-        // 自定义后台目录适配：包内 admin/ 全部迁往实际后台目录
-        $destRel = $relPath;
-        if ($relPath === 'admin' && $isDir && $adminDir !== 'admin') {
+        // 后台目录适配：包内 admin/ 及其子目录整体映射到站点实际后台目录
+        // 注意：不能跳过 admin 目录，否则自定义后台目录的站点会漏掉全部后台文件（新增页面直接 404）
+        $destRelPath = $destRel !== '' ? $destRel . '/' . $item : $item;
+        if ($relPath === 'admin' || str_starts_with($relPath, 'admin/')) {
+            $destRelPath = $adminDir . substr($relPath, strlen('admin'));
+        }
+        // 目标路径安全校验：禁止绝对路径与目录穿越
+        if ($destRelPath === '' || str_starts_with($destRelPath, '/') || in_array('..', explode('/', $destRelPath), true)) {
             $skipped++;
+            $log[] = '已跳过异常路径：' . $relPath;
             continue;
         }
-        if (str_starts_with($relPath, 'admin/') && $adminDir !== 'admin') {
-            $destRel = $adminDir . substr($relPath, strlen('admin'));
-        }
 
-        $destPath = $destBase . '/' . $destRel;
+        $destPath = $destBase . '/' . $destRelPath;
         if ($isDir) {
             if (!is_dir($destPath) && !@mkdir($destPath, 0755, true) && !is_dir($destPath)) {
-                $log[] = '创建目录失败：' . $destRel;
+                $log[] = '创建目录失败：' . $destRelPath;
                 $skipped++;
                 continue;
             }
-            [$c, $s] = update_copy_tree($srcPath, $destBase, $adminDir, $log, $relPath);
+            [$c, $s] = update_copy_tree($srcPath, $destBase, $adminDir, $log, $relPath, $destRelPath);
             $copied += $c;
             $skipped += $s;
         } else {
             $destDir = dirname($destPath);
             if (!is_dir($destDir) && !@mkdir($destDir, 0755, true) && !is_dir($destDir)) {
-                $log[] = '创建目录失败：' . dirname($destRel);
+                $log[] = '创建目录失败：' . dirname($destRelPath);
                 $skipped++;
                 continue;
             }
             if (!@copy($srcPath, $destPath)) {
-                $log[] = '覆盖失败（权限？）：' . $destRel;
+                $log[] = '覆盖失败（权限？）：' . $destRelPath;
                 $skipped++;
                 continue;
             }
@@ -176,6 +185,56 @@ function update_copy_tree(string $srcDir, string $destBase, string $adminDir, ar
         }
     }
     return [$copied, $skipped];
+}
+
+// 校验安装包 admin/ 下的文件是否已全部同步到实际后台目录，返回缺失的相对路径列表
+function update_admin_verify(string $srcRoot, string $adminDir): array
+{
+    $src = rtrim($srcRoot, '/') . '/admin';
+    if (!is_dir($src) || !class_exists('RecursiveDirectoryIterator')) {
+        return [];
+    }
+    $missing = [];
+    $destBase = rtrim(ROOT_PATH, '/') . '/' . $adminDir;
+    try {
+        $it = new RecursiveIteratorIterator(
+            new RecursiveDirectoryIterator($src, FilesystemIterator::SKIP_DOTS),
+            RecursiveIteratorIterator::LEAVES_ONLY
+        );
+        foreach ($it as $file) {
+            if (!$file->isFile()) {
+                continue;
+            }
+            $rel = str_replace('\\', '/', substr($file->getPathname(), strlen($src) + 1));
+            if ($rel === '' || !is_file($destBase . '/' . $rel)) {
+                $missing[] = $rel;
+            }
+        }
+    } catch (Throwable $ex) {
+        return [];
+    }
+    sort($missing);
+    return $missing;
+}
+
+// 执行文件替换（复制 + 后台目录完整性校验），返回 [复制数, 跳过数, 缺失后台文件]
+function update_apply_tree(string $root, array &$log): array
+{
+    $adminDir = update_admin_dir();
+    $log[] = '后台目录：' . $adminDir . '/' . ($adminDir !== 'admin' ? '（安装包 admin/ 自动同步到该目录）' : '')
+        . '，自动保护 config.php / install.lock / runtime / uploads';
+    if ($adminDir !== 'admin' && is_dir(ROOT_PATH . '/admin')) {
+        $log[] = '提示：站点根目录仍存在 admin/ 目录，如为改名后的残留，建议确认后删除，避免后台入口暴露。';
+    }
+    [$copied, $skipped] = update_copy_tree($root, ROOT_PATH, $adminDir, $log);
+    $missing = update_admin_verify($root, $adminDir);
+    if ($missing) {
+        $log[] = '警告：' . count($missing) . ' 个后台文件未同步到 ' . $adminDir . '/（请检查目录写权限）：'
+            . implode('、', array_slice($missing, 0, 8)) . (count($missing) > 8 ? ' 等' : '');
+    } elseif (is_dir($root . '/admin')) {
+        $log[] = '后台文件校验通过：' . $adminDir . '/ 已与安装包 admin/ 一致。';
+    }
+    return [$copied, $skipped, $missing];
 }
 
 // ===== 分块下载（前端进度条驱动） =====
@@ -507,9 +566,7 @@ if (in_array($ajaxAction, ['prepare', 'chunk', 'apply'], true)) {
         upd_json(['ok' => false, 'msg' => '安装包内容与系统结构不符，已中止替换（站点文件未改动）。']);
     }
 
-    $adminDir = update_admin_dir();
-    $log[] = '后台目录：' . $adminDir . '/（自动保护 config.php / install.lock / runtime / uploads）';
-    [$copied, $skipped] = update_copy_tree($root, ROOT_PATH, $adminDir, $log);
+    [$copied, $skipped] = update_apply_tree($root, $log);
     if ($copied === 0) {
         update_rmdir($extDir);
         @unlink($pkg);
@@ -621,9 +678,8 @@ if (is_post() && (string)($_POST['action'] ?? '') === 'start_update') {
                                     $failed = true;
                                     $log[] = '更新失败：安装包内容与系统结构不符，已中止替换（站点文件未改动）。';
                                 } else {
-                                    $adminDir = update_admin_dir();
-                                    $log[] = '开始覆盖替换文件（后台目录：' . $adminDir . '/，自动保护 config.php / install.lock / runtime / uploads）…';
-                                    [$copied, $skipped] = update_copy_tree($root, ROOT_PATH, $adminDir, $log);
+                                    $log[] = '开始覆盖替换文件…';
+                                    [$copied, $skipped] = update_apply_tree($root, $log);
                                     if ($copied === 0) {
                                         $failed = true;
                                         $log[] = '更新失败：未能替换任何文件，请检查站点根目录写权限。';

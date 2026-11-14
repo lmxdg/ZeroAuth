@@ -8,7 +8,7 @@ define('ROOT_PATH', dirname(__DIR__));
 define('RUNTIME_PATH', ROOT_PATH . '/runtime');
 define('PRODUCT_NAME', 'ZeroAuth');
 define('PRODUCT_FULLNAME', 'ZeroAuth 云鉴权 软件授权 & 域名授权管理系统');
-define('PRODUCT_VERSION', '2.2.3');
+define('PRODUCT_VERSION', '2.2.4');
 define('SYS_VERSION', '2.1.1');
 define('PRODUCT_AUTHOR_ORIGINAL', 'APE开发项目组-玄猿工坊');
 define('PRODUCT_AUTHOR_DEV', 'MEMZ-LMXDG');

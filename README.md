@@ -6,9 +6,9 @@
 
 **轻量 · 高安全 · 开箱即用的软件授权 & 域名授权管理系统**
 
-`V2.2.3` · 内核 `V2.1.1` · 原生 PHP · 零框架依赖
+`V2.2.4` · 内核 `V2.1.1` · 原生 PHP · 零框架依赖
 
-[![Version](https://img.shields.io/badge/version-2.2.3-blue)](https://github.com/lmxdg/ZeroAuth/releases)
+[![Version](https://img.shields.io/badge/version-2.2.4-blue)](https://github.com/lmxdg/ZeroAuth/releases)
 [![License: MIT](https://img.shields.io/badge/license-MIT-green.svg)](LICENSE)
 [![PHP](https://img.shields.io/badge/PHP-8.0%20--%208.2-777BB4?logo=php&logoColor=white)](https://www.php.net/)
 [![MySQL](https://img.shields.io/badge/MySQL-5.6%20--%205.7-4479A1?logo=mysql&logoColor=white)](https://www.mysql.com/)
@@ -146,6 +146,16 @@ ZeroAuth/
 ```
 
 ## 更新日志
+
+### V2.2.4（2026-11-14）· 内核 V2.1.1
+
+1. **修复在线更新漏同步后台目录（重点）**
+   - 修复一键在线更新在**自定义后台目录**场景下跳过整个 `admin/` 目录的问题：旧逻辑只跳过不迁移，导致后台文件（含新增的 Bug 广场管理页）未写入实际后台目录，后台入口直接 404；
+   - 新的复制逻辑把安装包内 `admin/` 及其子目录**递归映射**到站点实际后台目录，新增页面、静态资源一并同步；默认 `admin/` 站点行为不变；
+   - 更新完成后自动做**后台文件完整性校验**，缺失文件会在更新日志中列明，不再静默失败；
+   - 后台目录配置为 `runtime` / `uploads` / `core` 等保留目录时自动回退为 `admin`，避免后台文件写入业务目录。
+2. **后台文件版本自检**
+   - 新增后台版本标记 `admin/.build`；自定义后台目录的站点若文件未同步，后台顶部会显示醒目提示（含目标目录与修复方法），避免出现"菜单能点开、页面却 404"的困惑。
 
 ### V2.2.3（2026-11-14）· 内核 V2.1.1
 
